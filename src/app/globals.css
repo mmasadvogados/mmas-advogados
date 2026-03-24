@@ -1,26 +1,194 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ============================================
+   MMAS Advogados — Premium Design System
+   Futuristic + Sophisticated | Ruler-Sage Archetype
+   "Gravitas meets Innovation"
+   ============================================ */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* ---- COLORS ---- */
+  --color-background: #0A0A0A;
+  --color-primary: #111111;
+  --color-primary-light: #1A1A1A;
+  --color-accent: #C9A227;
+  --color-accent-light: #DFBD43;
+  --color-accent-muted: #9E8A5E;
+  --color-cream: #F5F0E8;
+  --color-olive: #3A3D2F;
+  --color-slate: #4A4F54;
+  --color-surface: #141414;
+  --color-surface-light: #1E1E1E;
+  --color-surface-glass: rgba(20, 20, 20, 0.6);
+  --color-foreground: #F5F0E8;
+  --color-foreground-muted: #8A8A8A;
+  --color-border: #222222;
+  --color-border-gold: rgba(201, 162, 39, 0.15);
+  --color-error: #EF4444;
+  --color-success: #22C55E;
+
+  /* ---- GRADIENTS ---- */
+  --gradient-gold: linear-gradient(135deg, #C9A227 0%, #DFBD43 50%, #9E8A5E 100%);
+  --gradient-gold-shimmer: linear-gradient(90deg, transparent, rgba(201, 162, 39, 0.3), transparent);
+  --gradient-dark: linear-gradient(180deg, #0A0A0A 0%, #111111 100%);
+  --gradient-hero-overlay: linear-gradient(180deg, rgba(10,10,10,0.3) 0%, rgba(10,10,10,0.7) 50%, rgba(10,10,10,0.95) 100%);
+  --gradient-gold-vignette: radial-gradient(ellipse at center, transparent 50%, rgba(201, 162, 39, 0.03) 100%);
+
+  /* ---- SHADOWS ---- */
+  --shadow-glow-gold: 0 0 30px rgba(201, 162, 39, 0.12);
+  --shadow-glow-gold-strong: 0 0 60px rgba(201, 162, 39, 0.2);
+  --shadow-elevation-1: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-elevation-2: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-elevation-3: 0 12px 48px rgba(0, 0, 0, 0.5);
+
+  /* ---- TYPOGRAPHY ---- */
+  --font-heading: var(--font-playfair);
+  --font-body: var(--font-inter);
+  --font-accent: var(--font-cormorant);
+  --text-display: clamp(3rem, 7vw, 6rem);
+  --text-h1: clamp(2.25rem, 5vw, 3.5rem);
+  --text-h2: clamp(1.75rem, 3vw, 2.5rem);
+  --text-h3: clamp(1.25rem, 2vw, 1.5rem);
+  --text-body-lg: 1.125rem;
+  --text-body: 1rem;
+  --text-sm: 0.875rem;
+  --text-xs: 0.75rem;
+  --tracking-display: -0.02em;
+  --tracking-heading: -0.01em;
+  --tracking-wide: 0.15em;
+  --tracking-widest: 0.25em;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ---- LIGHT MODE OVERRIDES ---- */
+.light {
+  --color-background: #FAFAF8;
+  --color-foreground: #111111;
+  --color-foreground-muted: #6B7280;
+  --color-surface: #FFFFFF;
+  --color-surface-light: #F3F4F6;
+  --color-border: #E5E7EB;
+  --color-primary: #FFFFFF;
+  --color-primary-light: #F9FAFB;
+}
+
+/* ---- BASE STYLES ---- */
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ---- SCROLLBAR ---- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-background); }
+::-webkit-scrollbar-thumb { background: var(--color-accent-muted); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-accent); }
+
+/* ---- SELECTION ---- */
+::selection {
+  background: rgba(201, 162, 39, 0.25);
+  color: var(--color-cream);
+}
+
+/* ---- FOCUS ---- */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ---- GLASSMORPHISM ---- */
+.glass {
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid var(--color-border-gold);
+}
+
+/* ---- NOISE TEXTURE OVERLAY ---- */
+.noise-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ---- ANIMATED GOLD BORDER ---- */
+.gold-border-animated {
+  position: relative;
+}
+.gold-border-animated::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--gradient-gold);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.gold-border-animated:hover::before {
+  opacity: 1;
+}
+
+/* ---- SECTION LABEL STYLE ---- */
+.section-label {
+  font-family: var(--font-accent), serif;
+  font-style: italic;
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+/* ---- KEYFRAMES ---- */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes reveal-up {
+  from { clip-path: inset(100% 0 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes draw-line {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- REDUCED MOTION ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

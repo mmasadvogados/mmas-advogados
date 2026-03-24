@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 220" fill="none">
+  <!-- Base/Pillar -->
+  <rect x="96" y="80" width="8" height="120" fill="#C9A227" rx="2"/>
+  <rect x="70" y="195" width="60" height="6" fill="#C9A227" rx="3"/>
+
+  <!-- Top beam -->
+  <rect x="30" y="75" width="140" height="5" fill="#C9A227" rx="2.5"/>
+
+  <!-- Center circle/ornament -->
+  <circle cx="100" cy="72" r="12" stroke="#C9A227" stroke-width="3" fill="none"/>
+  <circle cx="100" cy="72" r="4" fill="#C9A227"/>
+
+  <!-- Left scale pan chains -->
+  <line x1="45" y1="80" x2="45" y2="110" stroke="#C9A227" stroke-width="2"/>
+  <line x1="30" y1="110" x2="45" y2="120" stroke="#C9A227" stroke-width="1.5"/>
+  <line x1="60" y1="110" x2="45" y2="120" stroke="#C9A227" stroke-width="1.5"/>
+
+  <!-- Left scale pan -->
+  <path d="M25 110 Q45 125 65 110" stroke="#C9A227" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Right scale pan chains -->
+  <line x1="155" y1="80" x2="155" y2="100" stroke="#C9A227" stroke-width="2"/>
+  <line x1="140" y1="100" x2="155" y2="110" stroke="#C9A227" stroke-width="1.5"/>
+  <line x1="170" y1="100" x2="155" y2="110" stroke="#C9A227" stroke-width="1.5"/>
+
+  <!-- Right scale pan (slightly higher = justice weighing) -->
+  <path d="M135 100 Q155 115 175 100" stroke="#C9A227" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+</svg>
