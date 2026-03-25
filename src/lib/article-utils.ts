@@ -2,7 +2,6 @@ import { db } from "@/lib/db";
 import { subscribers, newsletterLogs } from "@/lib/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
 import { sendNewsletter } from "@/lib/resend";
-import { revalidatePath } from "next/cache";
 
 export function onArticlePublished(article: {
   id: string;
@@ -11,14 +10,16 @@ export function onArticlePublished(article: {
   body: string;
   summary: string | null;
 }) {
-  // Revalidar cache do blog
-  try {
-    revalidatePath("/blog", "page");
-    revalidatePath(`/blog/${article.slug}`, "page");
-    revalidatePath("/", "layout");
-  } catch {
-    // revalidatePath pode falhar fora do contexto Next.js (ex: webhook Telegram)
-  }
+  // Revalidar cache do blog (dynamic import para evitar crash em contextos não-Next.js)
+  import("next/cache")
+    .then(({ revalidatePath }) => {
+      revalidatePath("/blog", "page");
+      revalidatePath(`/blog/${article.slug}`, "page");
+      revalidatePath("/", "layout");
+    })
+    .catch(() => {
+      // revalidatePath indisponível neste contexto
+    });
 
   // Newsletter em background (não bloqueia a resposta)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
