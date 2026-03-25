@@ -1,10 +1,40 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Phone, Mail, MapPin, Clock } from "lucide-react";
 
 export function Footer() {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/subscribers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage({ text: data.message || "Verifique seu email para confirmar!", type: "success" });
+        setEmail("");
+      } else {
+        setMessage({ text: data.error || "Erro ao inscrever.", type: "error" });
+      }
+    } catch {
+      setMessage({ text: "Erro de conexão. Tente novamente.", type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <footer className="relative">
       {/* Pre-footer CTA Bar */}
@@ -119,19 +149,28 @@ export function Footer() {
               <p className="text-sm text-[var(--color-foreground-muted)]">
                 Receba artigos jurídicos diretamente no seu email.
               </p>
-              <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
+              <form className="flex gap-2" onSubmit={handleSubscribe}>
                 <input
                   type="email"
                   placeholder="Seu email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   className="flex-1 bg-transparent border-b border-[var(--color-border)] pb-2 text-sm text-[var(--color-cream)] placeholder:text-[var(--color-foreground-muted)]/40 focus:border-[var(--color-accent)] focus:outline-none transition-colors"
                 />
                 <button
                   type="submit"
-                  className="px-5 py-2 text-sm rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] border border-[var(--color-accent)]/20 hover:bg-[var(--color-accent)]/20 transition-colors"
+                  disabled={loading}
+                  className="px-5 py-2 text-sm rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-accent)] border border-[var(--color-accent)]/20 hover:bg-[var(--color-accent)]/20 disabled:opacity-50 transition-colors"
                 >
-                  Assinar
+                  {loading ? "Enviando..." : "Me inscrever"}
                 </button>
               </form>
+              {message && (
+                <p className={`text-xs mt-2 ${message.type === "success" ? "text-green-400" : "text-red-400"}`}>
+                  {message.text}
+                </p>
+              )}
               <div className="pt-4">
                 <Link href="/blog" className="text-sm text-[var(--color-foreground-muted)] hover:text-[var(--color-accent)] transition-colors">
                   Acesse nosso Blog →
