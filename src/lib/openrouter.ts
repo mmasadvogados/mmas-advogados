@@ -11,20 +11,20 @@ function generateArticleImageUrl(title: string, area?: string): string {
   return `/api/og/article?${params.toString()}`;
 }
 
-// Using Groq as primary LLM (free, fast, reliable content output)
-// OpenRouter free models currently return reasoning-only responses
+// OpenRouter as primary (better models for long-form legal content)
+// Groq as fallback (free, fast but lower quality)
 const LLM_PROVIDERS = [
+  {
+    name: "openrouter",
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    model: "google/gemini-2.0-flash-001",
+    apiKeyEnv: "OPENROUTER_API_KEY",
+  },
   {
     name: "groq",
     url: "https://api.groq.com/openai/v1/chat/completions",
     model: "llama-3.3-70b-versatile",
     apiKeyEnv: "GROQ_API_KEY",
-  },
-  {
-    name: "openrouter",
-    url: "https://openrouter.ai/api/v1/chat/completions",
-    model: "openrouter/free",
-    apiKeyEnv: "OPENROUTER_API_KEY",
   },
 ];
 
@@ -33,16 +33,23 @@ export async function generateArticle(
 ): Promise<GeneratedArticle> {
   const systemPrompt = getArticleSystemPrompt(options);
 
-  const userPrompt = `Gere um artigo jurídico completo sobre o tema: "${options.topic}"${
-    options.area ? ` na área de ${options.area}` : ""
+  const userPrompt = `Escreva um artigo jurídico COMPLETO e APROFUNDADO sobre: "${options.topic}"${
+    options.area ? ` (área: ${options.area})` : ""
   }.
 
-Responda SOMENTE com JSON válido no formato:
+REQUISITOS OBRIGATÓRIOS:
+- Mínimo 6 seções com ## (Introdução, Fundamentação Legal, Jurisprudência, Análise Prática, Orientação ao Leitor, Conclusão)
+- Cada seção deve ter no MÍNIMO 2-3 parágrafos completos
+- Cite pelo menos 3 referências legais reais (artigos de lei, súmulas, entendimentos)
+- Inclua exemplos práticos de situações reais
+- O artigo deve ter entre 1500-2500 palavras
+
+Responda SOMENTE com JSON válido:
 {
-  "title": "Título do artigo",
-  "body": "Corpo completo do artigo em Markdown",
+  "title": "Título claro e informativo",
+  "body": "Artigo COMPLETO em Markdown (sem o título). DEVE ter todas as seções obrigatórias com profundidade.",
   "summary": "Resumo de 2-3 frases para newsletter",
-  "tags": ["tag1", "tag2"],
+  "tags": ["tag1", "tag2", "tag3"],
   "seoDescription": "Meta description para SEO (máximo 160 caracteres)"
 }`;
 
@@ -72,10 +79,10 @@ Responda SOMENTE com JSON válido no formato:
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          temperature: 0.7,
-          max_tokens: 4000,
+          temperature: 0.5,
+          max_tokens: 8000,
         }),
-        signal: AbortSignal.timeout(55000),
+        signal: AbortSignal.timeout(90000),
       });
 
       if (!response.ok) {
