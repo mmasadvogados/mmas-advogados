@@ -2,12 +2,12 @@ import { db } from "@/lib/db";
 import { articles } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import Link from "next/link";
-import { Calendar, Clock, Tag } from "lucide-react";
+import { Calendar, Clock } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { WhatsAppFAB } from "@/components/layout/whatsapp-fab";
 
-export const revalidate = 60;
+export const revalidate = 10;
 
 export const metadata = {
   title: "Blog",
@@ -56,9 +56,14 @@ export default async function BlogPage() {
                   href={`/blog/${post.slug}`}
                   className="group rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-accent)]/40 hover:shadow-[var(--shadow-glow-gold)] overflow-hidden transition-all duration-300"
                 >
-                  {/* Thumbnail placeholder */}
-                  <div className="h-48 bg-[var(--color-surface-light)] flex items-center justify-center">
-                    <Tag className="w-10 h-10 text-[var(--color-accent)]/30" />
+                  {/* Cover image */}
+                  <div className="h-48 overflow-hidden bg-[var(--color-surface-light)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/og/article?title=${encodeURIComponent(post.title)}${post.tags?.[0] ? `&area=${encodeURIComponent(post.tags[0])}` : ""}`}
+                      alt={post.title}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
 
                   <div className="p-6 space-y-3">

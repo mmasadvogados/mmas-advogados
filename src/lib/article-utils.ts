@@ -13,7 +13,9 @@ export function onArticlePublished(article: {
 }) {
   // Revalidar cache do blog
   try {
-    revalidatePath("/blog");
+    revalidatePath("/blog", "page");
+    revalidatePath(`/blog/${article.slug}`, "page");
+    revalidatePath("/", "layout");
   } catch {
     // revalidatePath pode falhar fora do contexto Next.js (ex: webhook Telegram)
   }
