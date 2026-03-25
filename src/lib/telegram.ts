@@ -119,6 +119,12 @@ bot.on("callback_query:data", async (ctx) => {
     await ctx.editMessageText(`Artigo publicado!\n\n${blogUrl}`, {
       reply_markup: shareKeyboard,
     });
+  } else if (data === "confirm_topic" && state.pendingTopic) {
+    await ctx.editMessageText(`Gerando artigo sobre: "${state.pendingTopic}"...`);
+    await handleGeneration(ctx, tgId, state.pendingTopic);
+  } else if (data === "reject_topic") {
+    userState.set(tgId, { step: "idle" });
+    await ctx.editMessageText("Ok, envie o tema correto por texto.");
   } else if (data === "reject") {
     userState.set(tgId, { step: "idle" });
     await ctx.editMessageText("Artigo descartado. Envie novo tema quando quiser.");
