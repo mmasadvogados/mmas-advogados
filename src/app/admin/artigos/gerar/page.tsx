@@ -150,7 +150,25 @@ export default function GenerateArticlePage() {
                   ))}
                 </div>
                 <div className="mt-6 prose prose-invert prose-gold max-w-none text-[var(--color-foreground-muted)] leading-relaxed [&_h2]:font-[family-name:var(--font-heading)] [&_h2]:text-[var(--color-foreground)] [&_h2]:text-2xl [&_h2]:mt-10 [&_h2]:mb-4 [&_h3]:text-[var(--color-foreground)] [&_h3]:text-xl [&_h3]:mt-8 [&_h3]:mb-3 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-2 [&_strong]:text-[var(--color-foreground)] [&_strong]:font-semibold [&_a]:text-[var(--color-accent)] [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--color-accent)] [&_blockquote]:pl-4 [&_blockquote]:italic [&_img]:w-full [&_img]:rounded-2xl [&_img]:shadow-lg [&_img]:mb-8">
-                  <ReactMarkdown>{article.body}</ReactMarkdown>
+                  <ReactMarkdown
+                    components={{
+                      img: ({ src, alt, ...props }) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={src}
+                          alt={alt || ""}
+                          loading="lazy"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = "none";
+                          }}
+                          {...props}
+                        />
+                      ),
+                    }}
+                  >
+                    {article.body}
+                  </ReactMarkdown>
                 </div>
               </>
             )}

@@ -1,6 +1,16 @@
 import type { GeneratedArticle, GenerateArticleOptions } from "@/types";
 import { getArticleSystemPrompt } from "@/prompts/article-system-prompt";
 
+/**
+ * Gera URL da imagem de capa do artigo via Vercel OG.
+ * Usa path relativo para funcionar em qualquer ambiente (dev, preview, prod).
+ */
+function generateArticleImageUrl(title: string, area?: string): string {
+  const params = new URLSearchParams({ title });
+  if (area) params.set("area", area);
+  return `/api/og/article?${params.toString()}`;
+}
+
 // Using Groq as primary LLM (free, fast, reliable content output)
 // OpenRouter free models currently return reasoning-only responses
 const LLM_PROVIDERS = [
@@ -104,14 +114,8 @@ Responda SOMENTE com JSON válido no formato:
         throw new Error("Missing required fields in LLM response");
       }
 
-      // Generate AI Image using Pollinations (Flux model, free, open source)
-      // We mix the Portuguese title with English styling keywords for best results
-      const imagePrompt = encodeURIComponent(
-        `${article.title}, professional high-quality editorial photography, legal context, modern law firm aesthetics, incredibly detailed 8k`
-      );
-      const imageUrl = `https://pollinations.ai/p/${imagePrompt}?width=1024&height=512&nologo=true`;
-
-      // Inject the image at the top of the Markdown body
+      // Generate contextual article cover image via Vercel OG
+      const imageUrl = generateArticleImageUrl(article.title, options.area);
       article.body = `![${article.title}](${imageUrl})\n\n${article.body}`;
 
       return article;
