@@ -98,7 +98,9 @@ Responda SOMENTE com JSON válido:
 
       if (!content) throw new Error("Empty response from LLM");
 
-      // Parse JSON from response (handle markdown code blocks and reasoning blocks)
+      console.log(`[${provider.name}] Response length: ${content.length} chars`);
+
+      // Parse JSON from response
       let jsonStr = content
         .replace(/```json\n?/g, "")
         .replace(/```\n?/g, "")
@@ -106,16 +108,52 @@ Responda SOMENTE com JSON válido:
 
       const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-         jsonStr = jsonMatch[0];
+        jsonStr = jsonMatch[0];
       }
 
-      // Fix unescaped newlines/tabs inside JSON string values
-      // (very common mistake for LLMs generating markdown within JSON)
-      jsonStr = jsonStr.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (match: string) => {
-        return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
-      });
-
-      const article = JSON.parse(jsonStr) as GeneratedArticle;
+      // Robust JSON parsing: try direct parse first, then fix newlines
+      let article: GeneratedArticle;
+      try {
+        article = JSON.parse(jsonStr);
+      } catch {
+        // Fix unescaped newlines inside JSON string values
+        // Process character by character to handle nested quotes correctly
+        let fixed = "";
+        let inString = false;
+        let escaped = false;
+        for (let i = 0; i < jsonStr.length; i++) {
+          const ch = jsonStr[i];
+          if (escaped) {
+            fixed += ch;
+            escaped = false;
+            continue;
+          }
+          if (ch === "\\") {
+            fixed += ch;
+            escaped = true;
+            continue;
+          }
+          if (ch === '"') {
+            inString = !inString;
+            fixed += ch;
+            continue;
+          }
+          if (inString && ch === "\n") {
+            fixed += "\\n";
+            continue;
+          }
+          if (inString && ch === "\r") {
+            fixed += "\\r";
+            continue;
+          }
+          if (inString && ch === "\t") {
+            fixed += "\\t";
+            continue;
+          }
+          fixed += ch;
+        }
+        article = JSON.parse(fixed);
+      }
 
       if (!article.title || !article.body) {
         throw new Error("Missing required fields in LLM response");
