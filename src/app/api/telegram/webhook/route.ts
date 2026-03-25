@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 import { webhookCallback } from "grammy";
 import { bot } from "@/lib/telegram";
 
-const handler = webhookCallback(bot, "std/http", {
-  secretToken: process.env.TELEGRAM_WEBHOOK_SECRET,
-});
+const handler = webhookCallback(bot, "std/http");
 
 export async function POST(request: Request) {
   try {
