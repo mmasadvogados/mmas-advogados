@@ -7,7 +7,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { WhatsAppFAB } from "@/components/layout/whatsapp-fab";
 
-export const revalidate = 10;
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Blog",

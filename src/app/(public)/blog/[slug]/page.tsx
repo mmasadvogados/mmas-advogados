@@ -10,7 +10,7 @@ import { WhatsAppFAB } from "@/components/layout/whatsapp-fab";
 import type { Metadata } from "next";
 import ReactMarkdown from "react-markdown";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 
