@@ -105,23 +105,28 @@ export async function GET(request: NextRequest) {
               gap: "12px",
             }}
           >
-            <div
-              style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "8px",
-                background: "linear-gradient(135deg, #C8A03B, #E8C547)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "20px",
-                fontWeight: 700,
-                color: "#1A1A1A",
-              }}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 200 220"
+              fill="none"
+              width="44"
+              height="48"
             >
-              M
-            </div>
-            <span style={{ color: "#999999", fontSize: "18px" }}>
+              <rect x="96" y="80" width="8" height="120" fill="#C9A227" rx="2"/>
+              <rect x="70" y="195" width="60" height="6" fill="#C9A227" rx="3"/>
+              <rect x="30" y="75" width="140" height="5" fill="#C9A227" rx="2.5"/>
+              <circle cx="100" cy="72" r="12" stroke="#C9A227" strokeWidth="3" fill="none"/>
+              <circle cx="100" cy="72" r="4" fill="#C9A227"/>
+              <line x1="45" y1="80" x2="45" y2="110" stroke="#C9A227" strokeWidth="2"/>
+              <line x1="30" y1="110" x2="45" y2="120" stroke="#C9A227" strokeWidth="1.5"/>
+              <line x1="60" y1="110" x2="45" y2="120" stroke="#C9A227" strokeWidth="1.5"/>
+              <path d="M25 110 Q45 125 65 110" stroke="#C9A227" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+              <line x1="155" y1="80" x2="155" y2="100" stroke="#C9A227" strokeWidth="2"/>
+              <line x1="140" y1="100" x2="155" y2="110" stroke="#C9A227" strokeWidth="1.5"/>
+              <line x1="170" y1="100" x2="155" y2="110" stroke="#C9A227" strokeWidth="1.5"/>
+              <path d="M135 100 Q155 115 175 100" stroke="#C9A227" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+            </svg>
+            <span style={{ color: "#C8A03B", fontSize: "18px", fontWeight: 600 }}>
               MMAS Advogados
             </span>
           </div>

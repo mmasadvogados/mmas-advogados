@@ -3,9 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { subscribers } from "@/lib/db/schema";
 import { subscribeSchema } from "@/lib/validators";
-import { sendConfirmationEmail } from "@/lib/resend";
 import { desc, eq } from "drizzle-orm";
-import crypto from "crypto";
 
 export async function GET() {
   const session = await auth();
@@ -35,26 +33,29 @@ export async function POST(request: Request) {
 
   if (existing) {
     if (existing.confirmed && !existing.unsubscribedAt) {
-      return NextResponse.json({ message: "Já inscrito" });
+      return NextResponse.json({ message: "Você já está inscrito!" });
     }
     if (existing.unsubscribedAt) {
       await db
         .update(subscribers)
-        .set({ unsubscribedAt: null, confirmed: false, confirmationToken: crypto.randomUUID() })
+        .set({ unsubscribedAt: null, confirmed: true, confirmationToken: null })
         .where(eq(subscribers.id, existing.id));
+      return NextResponse.json({ message: "Inscrição reativada com sucesso!" });
     }
-    return NextResponse.json({ message: "Verifique seu email" });
+    // Existing but not confirmed — confirm now
+    await db
+      .update(subscribers)
+      .set({ confirmed: true, confirmationToken: null })
+      .where(eq(subscribers.id, existing.id));
+    return NextResponse.json({ message: "Inscrição confirmada!" });
   }
-
-  const token = crypto.randomUUID();
 
   await db.insert(subscribers).values({
     email: parsed.data.email,
     name: parsed.data.name || null,
-    confirmationToken: token,
+    confirmed: true,
+    confirmationToken: null,
   });
 
-  await sendConfirmationEmail(parsed.data.email, token);
-
-  return NextResponse.json({ message: "Verifique seu email para confirmar" }, { status: 201 });
+  return NextResponse.json({ message: "Inscrição confirmada! Você receberá nossos artigos." }, { status: 201 });
 }
