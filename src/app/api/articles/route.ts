@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { articles, articleStatusHistory } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
+import { onArticlePublished } from "@/lib/article-utils";
 
 export async function GET() {
   const session = await auth();
@@ -60,6 +61,10 @@ export async function POST(request: Request) {
     toStatus: article.status,
     changedBy: session.user.id,
   });
+
+  if (article.status === "published") {
+    onArticlePublished(article);
+  }
 
   return NextResponse.json(article, { status: 201 });
 }

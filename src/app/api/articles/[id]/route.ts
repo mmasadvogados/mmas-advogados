@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { articles, articleStatusHistory } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { onArticlePublished } from "@/lib/article-utils";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -71,6 +72,10 @@ export async function PUT(request: Request, { params }: Props) {
 
   revalidatePath("/blog");
   revalidatePath(`/blog/${existing.slug}`);
+
+  if (body.status === "published" && body.status !== existing.status) {
+    onArticlePublished(updated);
+  }
 
   return NextResponse.json(updated);
 }

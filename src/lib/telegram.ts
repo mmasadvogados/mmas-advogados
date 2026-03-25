@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { generateArticle } from "@/lib/openrouter";
 import { transcribeAudio } from "@/lib/groq";
+import { onArticlePublished } from "@/lib/article-utils";
 
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || "dummy");
@@ -102,6 +103,8 @@ bot.on("callback_query:data", async (ctx) => {
         changedBy: session.userId,
       });
     }
+
+    onArticlePublished(saved);
 
     const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${slug}`;
     const shareKeyboard = new InlineKeyboard()
