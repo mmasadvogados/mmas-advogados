@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Article } from "@/types";
-import { FileText, Sparkles, Trash2 } from "lucide-react";
+import { Eye, FileText, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const statusColors: Record<string, string> = {
@@ -134,6 +134,14 @@ export default function ArticlesPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/admin/artigos/preview/${article.slug}`}
+                        target="_blank"
+                        className="p-1.5 rounded text-[var(--color-foreground-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10"
+                        title="Ver artigo"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Link>
                       {article.status === "draft" && (
                         <button
                           onClick={() => updateStatus(article.id, "published")}
