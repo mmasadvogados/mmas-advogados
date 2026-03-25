@@ -25,6 +25,6 @@ export async function GET(request: Request) {
     .where(eq(subscribers.id, subscriber.id));
 
   return NextResponse.redirect(
-    new URL("/?newsletter=confirmed", request.url)
+    new URL("/newsletter/confirmado", request.url)
   );
 }

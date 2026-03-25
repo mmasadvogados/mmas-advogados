@@ -2,6 +2,9 @@ import { Resend } from "resend";
 
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
+const logoUrl = `${process.env.NEXT_PUBLIC_APP_URL}/images/logo-scales.svg`;
+const emailLogo = `<img src="${logoUrl}" alt="MMAS Advogados" width="40" height="44" style="display: block;" />`;
+
 export async function sendNewsletter(
   to: string[],
   subject: string,
@@ -46,7 +49,8 @@ export async function sendConfirmationEmail(to: string, token: string) {
     subject: "Confirme sua inscrição na newsletter",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #1A1A1A; color: #FAFAFA; padding: 40px;">
-        <h1 style="color: #C8A03B; font-size: 24px;">MMAS Advogados</h1>
+        ${emailLogo}
+        <h1 style="color: #C8A03B; font-size: 24px; margin-top: 16px;">MMAS Advogados</h1>
         <p>Obrigado por se inscrever em nossa newsletter!</p>
         <p>Clique no botão abaixo para confirmar sua inscrição:</p>
         <a href="${confirmUrl}" style="display: inline-block; background: #C8A03B; color: #1A1A1A; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 20px 0;">
@@ -71,7 +75,8 @@ function getNewsletterHtml(
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #1A1A1A; color: #FAFAFA; padding: 40px;">
       <div style="border-bottom: 2px solid #C8A03B; padding-bottom: 20px; margin-bottom: 30px;">
-        <h1 style="color: #C8A03B; font-size: 20px; margin: 0;">MMAS Advogados</h1>
+        ${emailLogo}
+        <h1 style="color: #C8A03B; font-size: 20px; margin: 12px 0 0;">MMAS Advogados</h1>
         <p style="color: #888; font-size: 12px; margin: 5px 0 0;">Newsletter Jurídica</p>
       </div>
       <h2 style="color: #FAFAFA; font-size: 22px; line-height: 1.3;">${title}</h2>

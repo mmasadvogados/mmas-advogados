@@ -95,7 +95,17 @@ export default async function ArticlePage({ params }: Props) {
             </div>
           )}
 
-          <div className="mt-6 w-full h-px bg-[var(--color-border)]" />
+          {/* Cover image */}
+          <div className="mt-8 rounded-2xl overflow-hidden shadow-[var(--shadow-glow-gold-muted)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/og/article?title=${encodeURIComponent(article.title)}${article.tags?.[0] ? `&area=${encodeURIComponent(article.tags[0])}` : ""}`}
+              alt={article.title}
+              className="w-full"
+            />
+          </div>
+
+          <div className="mt-8 w-full h-px bg-[var(--color-border)]" />
 
           {/* Body */}
           <div className="mt-8 prose prose-invert prose-gold max-w-none text-[var(--color-foreground-muted)] leading-relaxed [&_h2]:font-[family-name:var(--font-heading)] [&_h2]:text-[var(--color-foreground)] [&_h2]:text-2xl [&_h2]:mt-10 [&_h2]:mb-4 [&_h3]:text-[var(--color-foreground)] [&_h3]:text-xl [&_h3]:mt-8 [&_h3]:mb-3 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-2 [&_strong]:text-[var(--color-foreground)] [&_strong]:font-semibold [&_a]:text-[var(--color-accent)] [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--color-accent)] [&_blockquote]:pl-4 [&_blockquote]:italic [&_img]:w-full [&_img]:rounded-2xl [&_img]:shadow-[var(--shadow-glow-gold-muted)] [&_img]:mb-8">
