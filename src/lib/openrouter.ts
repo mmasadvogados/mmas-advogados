@@ -57,7 +57,11 @@ Responda SOMENTE com JSON válido:
 
   for (const provider of LLM_PROVIDERS) {
     const apiKey = process.env[provider.apiKeyEnv];
-    if (!apiKey) continue;
+    if (!apiKey) {
+      console.warn(`[LLM] Skipping ${provider.name}: ${provider.apiKeyEnv} not set`);
+      continue;
+    }
+    console.log(`[LLM] Trying ${provider.name} (${provider.model})...`);
 
     try {
       const headers: Record<string, string> = {
