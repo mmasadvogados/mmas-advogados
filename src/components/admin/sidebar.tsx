@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
@@ -11,7 +12,6 @@ import {
   Mail,
   Users,
   LogOut,
-  Scale,
   Menu,
   X,
 } from "lucide-react";
@@ -57,12 +57,28 @@ export function AdminSidebar({ user }: SidebarProps) {
         } lg:translate-x-0`}
       >
         {/* Logo */}
-        <div className="p-6 border-b border-[var(--color-border)]">
-          <Link href="/admin/dashboard" className="flex items-center gap-3">
-            <Scale className="w-6 h-6 text-[var(--color-accent)]" />
-            <span className="font-[family-name:var(--font-heading)] text-lg font-bold">
-              MMAS <span className="text-[var(--color-accent)]">Admin</span>
-            </span>
+        <div className="p-5 border-b border-[var(--color-border)] flex-shrink-0">
+          <Link href="/admin/dashboard" className="flex items-center gap-2 group">
+            <Image
+              src="/images/logo-scales.svg"
+              alt="MMAS Advogados"
+              width={24}
+              height={28}
+              className="group-hover:drop-shadow-[0_0_8px_rgba(201,162,39,0.4)] transition-all duration-300 flex-shrink-0"
+            />
+            <div className="flex flex-col justify-center">
+              <div className="flex flex-col self-start">
+                <span className="font-[family-name:var(--font-accent)] italic text-[var(--color-cream)] text-[0.85rem] leading-none tracking-wide">
+                  Márcio Marano
+                </span>
+                <span className="font-[family-name:var(--font-accent)] italic text-[var(--color-cream)] text-[0.85rem] leading-tight tracking-wide ml-1.5">
+                  e André Silva
+                </span>
+              </div>
+              <span className="font-sans font-bold text-[var(--color-accent)] text-[0.38rem] leading-none tracking-[0.08em] mt-0.5">
+                ADVOGADOS ASSOCIADOS S/S
+              </span>
+            </div>
           </Link>
         </div>
 

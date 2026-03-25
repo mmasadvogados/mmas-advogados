@@ -81,17 +81,38 @@ Responda SOMENTE com JSON válido no formato:
 
       if (!content) throw new Error("Empty response from LLM");
 
-      // Parse JSON from response (handle markdown code blocks)
-      const jsonStr = content
+      // Parse JSON from response (handle markdown code blocks and reasoning blocks)
+      let jsonStr = content
         .replace(/```json\n?/g, "")
         .replace(/```\n?/g, "")
         .trim();
+
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+         jsonStr = jsonMatch[0];
+      }
+
+      // Fix unescaped newlines/tabs inside JSON string values
+      // (very common mistake for LLMs generating markdown within JSON)
+      jsonStr = jsonStr.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (match: string) => {
+        return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+      });
 
       const article = JSON.parse(jsonStr) as GeneratedArticle;
 
       if (!article.title || !article.body) {
         throw new Error("Missing required fields in LLM response");
       }
+
+      // Generate AI Image using Pollinations (Flux model, free, open source)
+      // We mix the Portuguese title with English styling keywords for best results
+      const imagePrompt = encodeURIComponent(
+        `${article.title}, professional high-quality editorial photography, legal context, modern law firm aesthetics, incredibly detailed 8k`
+      );
+      const imageUrl = `https://pollinations.ai/p/${imagePrompt}?width=1024&height=512&nologo=true`;
+
+      // Inject the image at the top of the Markdown body
+      article.body = `![${article.title}](${imageUrl})\n\n${article.body}`;
 
       return article;
     } catch (err) {

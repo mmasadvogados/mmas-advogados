@@ -79,10 +79,10 @@ export function About() {
           >
             <h2
               className="font-[family-name:var(--font-heading)] font-bold text-[var(--color-cream)] leading-tight"
-              style={{ fontSize: "var(--text-h1)" }}
+              style={{ fontSize: "var(--text-h2)" }}
             >
-              Tradição e<br />
-              <span className="text-[var(--color-accent)]">Inovação</span>
+              Anos de Tradição<br />
+              <span className="text-[var(--color-accent)]">e Dedicação</span>
             </h2>
 
             <p className="text-[var(--color-foreground-muted)] text-lg leading-relaxed">
@@ -94,8 +94,7 @@ export function About() {
             {/* Pull quote */}
             <blockquote className="border-l-2 border-[var(--color-accent)] pl-6 py-2">
               <p className="font-[family-name:var(--font-accent)] italic text-[var(--color-cream)] text-xl leading-relaxed">
-                &ldquo;Mais de 15 anos construindo uma reputação sólida, baseada em
-                resultados consistentes e dedicação integral aos nossos clientes.&rdquo;
+                &ldquo;Uma atuação norteada por princípios, em prol dos clientes e da comunidade.&rdquo;
               </p>
             </blockquote>
 

@@ -44,12 +44,17 @@ export function Header() {
               height={40}
               className="group-hover:drop-shadow-[0_0_8px_rgba(201,162,39,0.4)] transition-all duration-300"
             />
-            <div className="hidden sm:block">
-              <span className="font-[family-name:var(--font-accent)] italic text-[var(--color-cream)] text-lg tracking-wide">
-                Márcio Marano
-              </span>
-              <span className="font-[family-name:var(--font-accent)] italic text-[var(--color-accent-muted)] text-xs block -mt-0.5 tracking-[0.2em]">
-                & André Silva
+            <div className="hidden sm:flex flex-col justify-center">
+              <div className="flex flex-col self-start">
+                <span className="font-[family-name:var(--font-accent)] italic text-[var(--color-cream)] text-[1.35rem] leading-none tracking-wide">
+                  Márcio Marano
+                </span>
+                <span className="font-[family-name:var(--font-accent)] italic text-[var(--color-cream)] text-[1.35rem] leading-tight tracking-wide ml-3">
+                  e André Silva
+                </span>
+              </div>
+              <span className="font-sans font-bold text-[var(--color-accent)] text-[0.60rem] leading-none tracking-[0.1em] mt-1">
+                ADVOGADOS ASSOCIADOS S/S
               </span>
             </div>
           </Link>
@@ -62,7 +67,7 @@ export function Header() {
                 href={link.href}
                 onMouseEnter={() => setHoveredLink(link.href)}
                 onMouseLeave={() => setHoveredLink(null)}
-                className="relative px-5 py-2 text-sm font-medium text-[var(--color-foreground-muted)] hover:text-[var(--color-cream)] transition-colors duration-300"
+                className="relative px-5 py-2 text-sm font-medium text-[var(--color-cream)]/80 hover:text-[var(--color-accent)] transition-colors duration-300"
               >
                 {link.label}
                 {hoveredLink === link.href && (

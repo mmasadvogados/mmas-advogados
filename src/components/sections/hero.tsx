@@ -65,41 +65,49 @@ export function Hero() {
               Escritório de Advocacia
             </motion.p>
 
-            {/* Main Heading */}
-            <div className="overflow-hidden">
-              <motion.h1
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                transition={{ duration: 0.8, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                className="font-[family-name:var(--font-heading)] font-bold leading-[0.95] tracking-[var(--tracking-display)]"
-                style={{ fontSize: "var(--text-display)" }}
-              >
-                <span className="text-[var(--color-cream)]">Márcio</span>
-                <br />
-                <span className="text-[var(--color-cream)]">Marano</span>
-              </motion.h1>
-            </div>
-
+            {/* Main Heading as Complete Logo (Print 2 style) */}
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 1.1 }}
-              className="flex items-center gap-4"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              className="flex items-center gap-6"
             >
-              <div className="w-16 h-px bg-[var(--color-accent)]" />
-              <span className="font-[family-name:var(--font-accent)] italic text-[var(--color-accent)] text-2xl md:text-3xl">
-                &amp; André Silva
-              </span>
-            </motion.div>
+              {/* Scales of justice icon (Large) */}
+              <div className="relative w-20 h-24 sm:w-28 sm:h-32 flex-shrink-0">
+                <Image
+                  src="/images/logo-scales.svg"
+                  alt="Balança da Justiça"
+                  fill
+                  className="object-contain drop-shadow-[0_0_12px_rgba(201,162,39,0.5)]"
+                />
+              </div>
 
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 1.3 }}
-              className="tracking-[var(--tracking-widest)] text-[var(--color-accent-muted)] text-xs md:text-sm uppercase"
-            >
-              Advogados Associados
-            </motion.p>
+              {/* Logo text blocks */}
+              <div className="flex flex-col justify-center">
+                <div className="text-center sm:text-left self-start">
+                  <span 
+                    className="block font-[family-name:var(--font-accent)] italic text-[var(--color-cream)] leading-none tracking-wide"
+                    style={{ fontSize: "clamp(2.5rem, 5vw, 4.5rem)" }}
+                  >
+                    Márcio Marano
+                  </span>
+                  <span 
+                    className="block font-[family-name:var(--font-accent)] italic text-[var(--color-cream)] leading-tight tracking-wide sm:ml-8"
+                    style={{ fontSize: "clamp(2.5rem, 5vw, 4.5rem)" }}
+                  >
+                    e André Silva
+                  </span>
+                </div>
+                <div className="mt-3 sm:mt-4">
+                  <span 
+                    className="block font-sans font-bold text-[var(--color-accent)] leading-none tracking-[0.15em] sm:tracking-[0.2em]"
+                    style={{ fontSize: "clamp(0.85rem, 2vw, 1.25rem)" }}
+                  >
+                    ADVOGADOS ASSOCIADOS S/S
+                  </span>
+                </div>
+              </div>
+            </motion.div>
 
             <motion.p
               initial={{ opacity: 0, y: 15 }}
@@ -123,7 +131,7 @@ export function Hero() {
                 onClick={() =>
                   window.open("https://wa.me/553434233063", "_blank")
                 }
-                className="bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-accent-light)] text-[var(--color-background)] font-semibold hover:shadow-[var(--shadow-glow-gold-strong)] transition-shadow duration-500"
+                className="cursor-pointer bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-accent-light)] text-[var(--color-background)] font-semibold hover:shadow-[var(--shadow-glow-gold-strong)] transition-shadow duration-500"
               >
                 Fale Conosco
               </Button>
@@ -135,11 +143,10 @@ export function Hero() {
                     .getElementById("areas")
                     ?.scrollIntoView({ behavior: "smooth" })
                 }
-                className="border-[var(--color-accent-muted)]/30 text-[var(--color-cream)]"
+                className="cursor-pointer border-[var(--color-accent-muted)]/30 text-[var(--color-cream)]"
               >
                 Conheça Nossas Áreas
-              </Button>
-            </motion.div>
+              </Button></motion.div>
           </div>
 
           {/* Right Glass Card (2/5) */}
@@ -156,7 +163,7 @@ export function Hero() {
                   src="/images/signage-closeup.jpg"
                   alt="Fachada MMAS Advogados"
                   fill
-                  className="object-cover"
+                  className="object-cover object-top"
                   sizes="(max-width: 768px) 100vw, 40vw"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />

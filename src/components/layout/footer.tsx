@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Phone, Mail, MapPin } from "lucide-react";
+import { Phone, Mail, MapPin, Clock } from "lucide-react";
 
 export function Footer() {
   return (
@@ -36,15 +36,18 @@ export function Footer() {
                 <Image
                   src="/images/logo-scales.svg"
                   alt="MMAS Advogados"
-                  width={32}
-                  height={36}
+                  width={34}
+                  height={38}
                 />
-                <div>
-                  <span className="font-[family-name:var(--font-accent)] italic text-[var(--color-cream)] text-lg">
+                <div className="flex flex-col self-start">
+                  <span className="font-[family-name:var(--font-accent)] italic text-[var(--color-cream)] text-xl leading-none tracking-wide">
                     Márcio Marano
                   </span>
-                  <span className="font-[family-name:var(--font-accent)] italic text-[var(--color-accent-muted)] text-xs block -mt-0.5 tracking-[0.15em]">
-                    & André Silva Advogados
+                  <span className="font-[family-name:var(--font-accent)] italic text-[var(--color-cream)] text-xl leading-tight tracking-wide ml-3">
+                    e André Silva
+                  </span>
+                  <span className="font-sans font-bold text-[var(--color-accent)] text-[0.65rem] leading-none tracking-[0.1em] mt-1">
+                    ADVOGADOS ASSOCIADOS S/S
                   </span>
                 </div>
               </div>
@@ -56,21 +59,46 @@ export function Footer() {
                 href="https://instagram.com/mmasadvogados"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-[var(--color-foreground-muted)] hover:text-[var(--color-accent)] transition-colors"
+                className="inline-flex items-center gap-2 text-sm text-[var(--color-foreground-muted)] hover:text-[var(--color-accent)] transition-colors mt-2"
               >
-                @mmasadvogados
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-4 h-4"
+                >
+                  <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                  <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                </svg>
+                <span>@mmasadvogados</span>
               </a>
             </div>
 
             {/* Contact */}
             <div className="space-y-5">
               <h3 className="text-xs tracking-[var(--tracking-widest)] text-[var(--color-accent)] uppercase">
-                Contato
+                Contato & Atendimento
               </h3>
               <div className="space-y-4 text-sm text-[var(--color-foreground-muted)]">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 mt-0.5 text-[var(--color-accent-muted)] shrink-0" />
+                <a 
+                  href="https://www.google.com/maps/search/?api=1&query=Rua+Silvio+Romero,+500+-+Centro,+Frutal+-+MG,+38200-014" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex items-start gap-3 hover:text-[var(--color-accent)] transition-colors group"
+                >
+                  <MapPin className="w-4 h-4 mt-0.5 text-[var(--color-accent-muted)] shrink-0 group-hover:scale-110 transition-transform" />
                   <span>Rua Silvio Romero, 500<br />Centro, Frutal-MG<br />CEP 38200-014</span>
+                </a>
+                <div className="flex items-center gap-3">
+                  <Clock className="w-4 h-4 text-[var(--color-accent-muted)]" />
+                  <span>Seg a Sex: 8h às 17h30</span>
                 </div>
                 <a href="tel:+553434233063" className="flex items-center gap-3 hover:text-[var(--color-accent)] transition-colors">
                   <Phone className="w-4 h-4 text-[var(--color-accent-muted)]" />
