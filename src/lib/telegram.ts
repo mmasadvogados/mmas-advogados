@@ -557,11 +557,29 @@ async function handleGeneration(
     });
 
     const areaLabel = area ? `\nArea detectada: ${escapeHtml(area)}` : "";
+
+    // Count article stats
+    const wordCount = article.body.split(/\s+/).length;
+    const sectionCount = (article.body.match(/^##\s/gm) || []).length;
+
+    // Show beginning of actual article body (truncated to fit Telegram 4096 char limit)
+    const bodyLines = article.body.split("\n").filter((l) => l.trim());
+    let bodyPreview = "";
+    for (const line of bodyLines) {
+      if (bodyPreview.length + line.length > 2500) break;
+      bodyPreview += line + "\n";
+    }
+    bodyPreview = escapeHtml(bodyPreview.trim());
+
     const preview =
       `<b>${escapeHtml(article.title)}</b>\n\n` +
-      `${escapeHtml(article.summary)}\n` +
-      `${areaLabel}\n\n` +
-      `Tags: ${article.tags.map((t) => `#${escapeHtml(t)}`).join(" ")}`;
+      `<i>${escapeHtml(article.summary)}</i>\n` +
+      `${areaLabel}\n` +
+      `Tags: ${article.tags.map((t) => `#${escapeHtml(t)}`).join(" ")}\n\n` +
+      `--- Preview do artigo ---\n\n` +
+      `${bodyPreview}\n\n` +
+      `--- Fim do preview ---\n` +
+      `Palavras: ${wordCount} | Secoes: ${sectionCount}`;
 
     const keyboard = new InlineKeyboard()
       .text("Aprovar", "approve")
@@ -569,7 +587,13 @@ async function handleGeneration(
       .row()
       .text("Regenerar", "regenerate");
 
-    await ctx.reply(preview, {
+    // Telegram max message length is 4096 chars
+    const finalPreview =
+      preview.length > 4000
+        ? preview.substring(0, 3950) + "\n\n... (preview truncado)"
+        : preview;
+
+    await ctx.reply(finalPreview, {
       parse_mode: "HTML",
       reply_markup: keyboard,
     });
