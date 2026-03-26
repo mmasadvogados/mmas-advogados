@@ -315,6 +315,7 @@ bot.on("callback_query:data", async (ctx) => {
       }
 
       // STEP 1: Clear session FIRST (prevents duplicate actions on retry)
+      console.log(`[APPROVE] Step 1: Clearing session for tgId=${tgId}, articleId=${draft.id}`);
       await updateSession(tgId, {
         botStep: "idle",
         pendingArticleId: null,
@@ -322,31 +323,53 @@ bot.on("callback_query:data", async (ctx) => {
         generatingAt: null,
       });
 
-      // STEP 2: Update draft to published
+      // STEP 2: Update to published (simple WHERE by ID only — idempotency guard above handles duplicates)
+      console.log(`[APPROVE] Step 2: Updating article ${draft.id} from "${draft.status}" to "published"`);
       const [updated] = await db
         .update(articles)
         .set({ status: "published", publishedAt: new Date() })
-        .where(and(eq(articles.id, draft.id), eq(articles.status, "draft")))
+        .where(eq(articles.id, draft.id))
         .returning({ id: articles.id, status: articles.status, slug: articles.slug });
 
+      console.log(`[APPROVE] Step 3: Update returned: ${JSON.stringify(updated)}`);
+
       if (!updated || updated.status !== "published") {
+        console.error(`[APPROVE] FAILED: updated=${JSON.stringify(updated)}`);
         await ctx.reply(
-          `ERRO: Falha ao publicar artigo (ID: ${draft.id}). Tente novamente.`
+          `ERRO: Falha ao publicar artigo (ID: ${draft.id}). Status: ${updated?.status || "nenhum retorno"}. Tente novamente.`
         );
         return;
       }
 
+      // STEP 3: Verify in DB (belt-and-suspenders — confirm the write persisted)
+      const [verified] = await db
+        .select({ status: articles.status, slug: articles.slug })
+        .from(articles)
+        .where(eq(articles.id, draft.id))
+        .limit(1);
+
+      console.log(`[APPROVE] Step 4: Verified in DB: status=${verified?.status}, slug=${verified?.slug}`);
+
+      if (verified?.status !== "published") {
+        console.error(`[APPROVE] VERIFICATION FAILED! DB shows: ${verified?.status}`);
+        await ctx.reply(
+          `ERRO: Artigo atualizado mas verificacao falhou (status=${verified?.status}). Contate o admin.`
+        );
+        return;
+      }
+
+      // Record status history
       if (session.userId) {
         await db.insert(articleStatusHistory).values({
           articleId: draft.id,
-          fromStatus: "draft",
+          fromStatus: draft.status,
           toStatus: "published",
           changedBy: session.userId,
         });
       }
 
-      // STEP 3: Reply to Telegram IMMEDIATELY (before heavy work)
-      const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${updated.slug}`;
+      // STEP 4: Reply to Telegram IMMEDIATELY (before heavy work)
+      const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${verified.slug}`;
       const shareKeyboard = new InlineKeyboard()
         .url("Ver no Blog", blogUrl)
         .row()
@@ -359,17 +382,17 @@ bot.on("callback_query:data", async (ctx) => {
       await ctx.reply(
         `Artigo publicado!\n\n` +
           `Titulo: ${draft.title}\n` +
-          `Status: publicado\n` +
+          `Status: publicado (verificado no banco)\n` +
           `Link: ${blogUrl}\n\n` +
-          `Atualizando blog e newsletter em background...`,
+          `Blog e newsletter sendo atualizados...`,
         { reply_markup: shareKeyboard }
       );
 
-      // STEP 4: Trigger revalidation + newsletter via separate HTTP calls
-      // These fire as independent Vercel function invocations (won't timeout this handler)
+      console.log(`[APPROVE] Step 5: Telegram reply sent, firing background tasks`);
+
+      // STEP 5: Trigger revalidation + newsletter via separate HTTP calls
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
 
-      // Revalidate blog cache
       fetch(`${appUrl}/api/revalidate`, {
         method: "POST",
         headers: {
@@ -377,12 +400,11 @@ bot.on("callback_query:data", async (ctx) => {
           Authorization: `Bearer ${process.env.REVALIDATE_SECRET || ""}`,
         },
         body: JSON.stringify({
-          paths: ["/blog", `/blog/${updated.slug}`, "/"],
+          paths: ["/blog", `/blog/${verified.slug}`, "/"],
         }),
         signal: AbortSignal.timeout(15000),
-      }).catch((err) => console.error("Revalidate fire-and-forget failed:", err));
+      }).catch((err) => console.error("[APPROVE] Revalidate failed:", err));
 
-      // Trigger newsletter via dedicated API (runs in its own function invocation)
       fetch(`${appUrl}/api/telegram/publish-notify`, {
         method: "POST",
         headers: {
@@ -391,7 +413,7 @@ bot.on("callback_query:data", async (ctx) => {
         },
         body: JSON.stringify({ articleId: draft.id }),
         signal: AbortSignal.timeout(15000),
-      }).catch((err) => console.error("Newsletter fire-and-forget failed:", err));
+      }).catch((err) => console.error("[APPROVE] Newsletter failed:", err));
 
     } else if (data === "confirm_topic") {
       const topic = session.pendingTopic;
