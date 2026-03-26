@@ -517,7 +517,7 @@ async function handleGeneration(
     });
 
     const area = detectArea(topic);
-    const article = await generateArticle({ topic, area });
+    const article = await generateArticle({ topic, area, length: "medium", tone: "technical" });
 
     const session = await getSession(tgId);
 
