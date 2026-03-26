@@ -10,7 +10,7 @@ import { eq, and, desc } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { generateArticle } from "@/lib/openrouter";
 import { transcribeAudio } from "@/lib/groq";
-import { onArticlePublished } from "@/lib/article-utils";
+// onArticlePublished is now triggered via HTTP to avoid blocking the webhook handler
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || "dummy");
 
@@ -273,7 +273,7 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
 
-      // Read draft article from DB
+      // Read article from DB
       const [draft] = await db
         .select()
         .from(articles)
@@ -290,16 +290,48 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
 
-      // Update draft to published
+      // Guard: if already published (retry/duplicate click), just confirm
+      if (draft.status === "published") {
+        const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${draft.slug}`;
+        await updateSession(tgId, {
+          botStep: "idle",
+          pendingArticleId: null,
+          pendingTopic: null,
+        });
+        await safeEditMessage(ctx, "Artigo ja foi publicado!");
+        await ctx.reply(
+          `Artigo ja publicado anteriormente.\n\nLink: ${blogUrl}`,
+          {
+            reply_markup: new InlineKeyboard()
+              .url("Ver no Blog", blogUrl)
+              .row()
+              .url(
+                "Compartilhar WhatsApp",
+                `https://wa.me/?text=${encodeURIComponent(draft.title + " " + blogUrl)}`
+              ),
+          }
+        );
+        return;
+      }
+
+      // STEP 1: Clear session FIRST (prevents duplicate actions on retry)
+      await updateSession(tgId, {
+        botStep: "idle",
+        pendingArticleId: null,
+        pendingTopic: null,
+        generatingAt: null,
+      });
+
+      // STEP 2: Update draft to published
       const [updated] = await db
         .update(articles)
         .set({ status: "published", publishedAt: new Date() })
-        .where(eq(articles.id, draft.id))
+        .where(and(eq(articles.id, draft.id), eq(articles.status, "draft")))
         .returning({ id: articles.id, status: articles.status, slug: articles.slug });
 
       if (!updated || updated.status !== "published") {
         await ctx.reply(
-          `ERRO: Falha ao publicar artigo (ID: ${draft.id}). Status: ${updated?.status || "desconhecido"}. Tente novamente.`
+          `ERRO: Falha ao publicar artigo (ID: ${draft.id}). Tente novamente.`
         );
         return;
       }
@@ -313,18 +345,7 @@ bot.on("callback_query:data", async (ctx) => {
         });
       }
 
-      // Clear the preview message immediately so user sees progress
-      await safeEditMessage(ctx, "Publicando e disparando newsletter...");
-
-      // Await publish side-effects (revalidação + newsletter)
-      const publishResult = await onArticlePublished({
-        id: draft.id,
-        title: draft.title,
-        slug: updated.slug,
-        body: draft.body,
-        summary: draft.summary,
-      });
-
+      // STEP 3: Reply to Telegram IMMEDIATELY (before heavy work)
       const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${updated.slug}`;
       const shareKeyboard = new InlineKeyboard()
         .url("Ver no Blog", blogUrl)
@@ -334,33 +355,43 @@ bot.on("callback_query:data", async (ctx) => {
           `https://wa.me/?text=${encodeURIComponent(draft.title + " " + blogUrl)}`
         );
 
-      await updateSession(tgId, {
-        botStep: "idle",
-        pendingArticleId: null,
-        pendingTopic: null,
-      });
-
-      // Build confirmation with real feedback
-      const cacheStatus = publishResult.revalidated ? "atualizado" : "pendente (ate 1 min)";
-      let newsletterStatus = "Nenhum assinante confirmado";
-      if (publishResult.newsletterSent > 0) {
-        newsletterStatus = `Enviada para ${publishResult.newsletterSent} assinante(s)`;
-        if (publishResult.newsletterError > 0) {
-          newsletterStatus += ` (${publishResult.newsletterError} falha(s))`;
-        }
-      } else if (publishResult.newsletterError > 0) {
-        newsletterStatus = `Falha ao enviar (${publishResult.newsletterError} erro(s))`;
-      }
-
+      await safeEditMessage(ctx, "Publicado!");
       await ctx.reply(
         `Artigo publicado!\n\n` +
           `Titulo: ${draft.title}\n` +
           `Status: publicado\n` +
-          `Blog: ${cacheStatus}\n` +
-          `Newsletter: ${newsletterStatus}\n` +
-          `Link: ${blogUrl}`,
+          `Link: ${blogUrl}\n\n` +
+          `Atualizando blog e newsletter em background...`,
         { reply_markup: shareKeyboard }
       );
+
+      // STEP 4: Trigger revalidation + newsletter via separate HTTP calls
+      // These fire as independent Vercel function invocations (won't timeout this handler)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+
+      // Revalidate blog cache
+      fetch(`${appUrl}/api/revalidate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.REVALIDATE_SECRET || ""}`,
+        },
+        body: JSON.stringify({
+          paths: ["/blog", `/blog/${updated.slug}`, "/"],
+        }),
+        signal: AbortSignal.timeout(15000),
+      }).catch((err) => console.error("Revalidate fire-and-forget failed:", err));
+
+      // Trigger newsletter via dedicated API (runs in its own function invocation)
+      fetch(`${appUrl}/api/telegram/publish-notify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.REVALIDATE_SECRET || ""}`,
+        },
+        body: JSON.stringify({ articleId: draft.id }),
+        signal: AbortSignal.timeout(15000),
+      }).catch((err) => console.error("Newsletter fire-and-forget failed:", err));
 
     } else if (data === "confirm_topic") {
       const topic = session.pendingTopic;

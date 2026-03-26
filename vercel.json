@@ -8,6 +8,9 @@
     },
     "src/app/api/newsletter/send/route.ts": {
       "maxDuration": 30
+    },
+    "src/app/api/telegram/publish-notify/route.ts": {
+      "maxDuration": 30
     }
   }
 }
