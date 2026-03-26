@@ -320,18 +320,25 @@ bot.on("callback_query:data", async (ctx) => {
       await handleGeneration(ctx, tgId, session.pendingTopic);
     }
   } catch (err) {
-    console.error("Callback error:", err);
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error("Callback error:", errorMsg, err);
     try {
-      await ctx.reply("Erro ao processar. Tente novamente enviando o tema.");
+      await ctx.reply(
+        `Erro ao processar: ${errorMsg.substring(0, 200)}\n\nTente novamente enviando o tema.`
+      );
     } catch {
       // silently ignore if reply also fails
     }
-    await updateSession(tgId, {
-      botStep: "idle",
-      generatingAt: null,
-      pendingArticleId: null,
-      pendingTopic: null,
-    });
+    try {
+      await updateSession(tgId, {
+        botStep: "idle",
+        generatingAt: null,
+        pendingArticleId: null,
+        pendingTopic: null,
+      });
+    } catch {
+      // DB cleanup failed, continue anyway
+    }
   }
 });
 
@@ -473,18 +480,23 @@ bot.on("message:text", async (ctx) => {
 // ============================================
 // Article generation with DB lock
 // ============================================
+// Escape special Markdown characters for Telegram
+function escapeMarkdown(text: string): string {
+  return text.replace(/([_*[\]()~`>#+\-=|{}.!])/g, "\\$1");
+}
+
 async function handleGeneration(
   ctx: { reply: (text: string, options?: object) => Promise<unknown> },
   tgId: number,
   topic: string
 ) {
-  // Set generation lock
-  await updateSession(tgId, {
-    generatingAt: new Date(),
-    botStep: "idle",
-  });
-
   try {
+    // Set generation lock
+    await updateSession(tgId, {
+      generatingAt: new Date(),
+      botStep: "idle",
+    });
+
     const area = detectArea(topic);
     const article = await generateArticle({ topic, area });
 
@@ -526,11 +538,17 @@ async function handleGeneration(
     });
 
     const areaLabel = area ? `\nArea detectada: ${area}` : "";
+    const safeTitle = escapeMarkdown(article.title);
+    const safeSummary = escapeMarkdown(article.summary);
+    const safeTags = article.tags
+      .map((t) => `\\#${escapeMarkdown(t)}`)
+      .join(" ");
+
     const preview =
-      `*${article.title}*\n\n` +
-      `${article.summary}\n` +
+      `*${safeTitle}*\n\n` +
+      `${safeSummary}\n` +
       `${areaLabel}\n\n` +
-      `Tags: ${article.tags.map((t) => `#${t}`).join(" ")}`;
+      `Tags: ${safeTags}`;
 
     const keyboard = new InlineKeyboard()
       .text("Aprovar", "approve")
@@ -539,17 +557,23 @@ async function handleGeneration(
       .text("Regenerar", "regenerate");
 
     await ctx.reply(preview, {
-      parse_mode: "Markdown",
+      parse_mode: "MarkdownV2",
       reply_markup: keyboard,
     });
   } catch (err) {
-    console.error("Generation error:", err);
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error("Generation error:", errorMsg, err);
     // Clear lock on error
-    await updateSession(tgId, {
-      generatingAt: null,
-      botStep: "idle",
-    });
-    await ctx.reply("Falha ao gerar artigo. Tente novamente.");
+    try {
+      await updateSession(tgId, {
+        generatingAt: null,
+        botStep: "idle",
+      });
+    } catch {
+      // DB cleanup failed, continue anyway
+    }
+    // Send as plain text (no Markdown) to avoid double failure
+    await ctx.reply(`Falha ao gerar artigo: ${errorMsg.substring(0, 200)}`);
   }
 }
 
