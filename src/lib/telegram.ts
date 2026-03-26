@@ -388,9 +388,9 @@ bot.on("message:voice", async (ctx) => {
       .text("Nao, corrigir", "reject_topic");
 
     await ctx.reply(
-      `Transcricao: *${transcription}*\n\nGerar artigo sobre este tema?`,
+      `Transcricao: <b>${escapeHtml(transcription)}</b>\n\nGerar artigo sobre este tema?`,
       {
-        parse_mode: "Markdown",
+        parse_mode: "HTML",
         reply_markup: keyboard,
       }
     );
@@ -472,17 +472,20 @@ bot.on("message:text", async (ctx) => {
     .text("Cancelar", "reject_topic");
 
   await ctx.reply(
-    `Gerar artigo sobre: *${text}*?${areaHint}\n\n(Geracao leva ate 60 segundos)`,
-    { parse_mode: "Markdown", reply_markup: keyboard }
+    `Gerar artigo sobre: <b>${escapeHtml(text)}</b>?${areaHint}\n\n(Geracao leva ate 60 segundos)`,
+    { parse_mode: "HTML", reply_markup: keyboard }
   );
 });
 
 // ============================================
 // Article generation with DB lock
 // ============================================
-// Escape special Markdown characters for Telegram
-function escapeMarkdown(text: string): string {
-  return text.replace(/([_*[\]()~`>#+\-=|{}.!])/g, "\\$1");
+// Escape HTML special characters for Telegram HTML parse mode
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 async function handleGeneration(
@@ -537,18 +540,12 @@ async function handleGeneration(
       botStep: "idle",
     });
 
-    const areaLabel = area ? `\nArea detectada: ${area}` : "";
-    const safeTitle = escapeMarkdown(article.title);
-    const safeSummary = escapeMarkdown(article.summary);
-    const safeTags = article.tags
-      .map((t) => `\\#${escapeMarkdown(t)}`)
-      .join(" ");
-
+    const areaLabel = area ? `\nArea detectada: ${escapeHtml(area)}` : "";
     const preview =
-      `*${safeTitle}*\n\n` +
-      `${safeSummary}\n` +
+      `<b>${escapeHtml(article.title)}</b>\n\n` +
+      `${escapeHtml(article.summary)}\n` +
       `${areaLabel}\n\n` +
-      `Tags: ${safeTags}`;
+      `Tags: ${article.tags.map((t) => `#${escapeHtml(t)}`).join(" ")}`;
 
     const keyboard = new InlineKeyboard()
       .text("Aprovar", "approve")
@@ -557,7 +554,7 @@ async function handleGeneration(
       .text("Regenerar", "regenerate");
 
     await ctx.reply(preview, {
-      parse_mode: "MarkdownV2",
+      parse_mode: "HTML",
       reply_markup: keyboard,
     });
   } catch (err) {
