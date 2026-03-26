@@ -39,21 +39,67 @@ async function updateSession(
     .where(eq(telegramSessions.telegramUserId, tgId));
 }
 
-// --- Casual message filter ---
+// --- Casual message detection and friendly responses ---
 
-const CASUAL_PATTERNS = [
-  /^(oi|ol[aá]|hey|hello|hi|e a[ií]|eai|fala|salve|opa)\b/i,
-  /^(bom dia|boa tarde|boa noite|bom fds|bom final de semana)\b/i,
-  /^(obrigad[oa]|valeu|brigad[oa]|vlw|thanks|tks)\b/i,
-  /^(tchau|at[eé] mais|at[eé] logo|flw|falou)\b/i,
-  /^(tudo bem|tudo certo|como vai|beleza|blz|td bem)\b/i,
-  /^(ok|sim|n[aã]o|s|n|yes|no)\s*[.!?]*$/i,
+const CASUAL_CATEGORIES: { patterns: RegExp[]; replies: string[] }[] = [
+  {
+    // Greetings
+    patterns: [
+      /^(oi|ol[aá]|hey|hello|hi|e a[ií]|eai|fala|salve|opa)\b/i,
+      /^(bom dia|boa tarde|boa noite)\b/i,
+    ],
+    replies: [
+      "Ola! Tudo bem? Qual tema voce gostaria de transformar em artigo?\n\nVoce pode digitar o tema ou enviar um audio!",
+      "Oi! Que bom falar com voce! Sobre qual assunto juridico deseja gerar um artigo?\n\nPode enviar por texto ou audio!",
+      "Ola! Estou pronto para ajudar! Me diga o tema do artigo que deseja gerar.\n\nAceito texto ou audio!",
+    ],
+  },
+  {
+    // How are you / small talk
+    patterns: [
+      /^(tudo bem|tudo certo|como vai|beleza|blz|td bem|como voce esta|como vc esta)/i,
+    ],
+    replies: [
+      "Tudo otimo! Pronto para gerar artigos. Qual tema voce tem em mente?\n\nPode enviar por texto ou audio!",
+      "Tudo bem sim! Em que posso ajudar? Me envie o tema do artigo por texto ou audio.",
+    ],
+  },
+  {
+    // Thanks
+    patterns: [/^(obrigad[oa]|valeu|brigad[oa]|vlw|thanks|tks)\b/i],
+    replies: [
+      "De nada! Se precisar de outro artigo, e so enviar o tema por texto ou audio.",
+      "Por nada! Estou aqui quando precisar. Envie um tema ou audio para gerar outro artigo.",
+    ],
+  },
+  {
+    // Goodbye
+    patterns: [/^(tchau|at[eé] mais|at[eé] logo|flw|falou)\b/i],
+    replies: [
+      "Ate mais! Quando precisar de um artigo, e so me chamar.",
+      "Ate logo! Estarei aqui quando precisar. Envie um tema ou audio a qualquer momento.",
+    ],
+  },
+  {
+    // Short affirmatives/negatives (prevent accidental generation)
+    patterns: [/^(ok|sim|n[aã]o|s|n|yes|no)\s*[.!?]*$/i],
+    replies: [
+      "Se quiser gerar um artigo, envie o tema completo por texto ou audio.\n\nExemplo: \"Direitos do consumidor em compras online\"",
+    ],
+  },
 ];
 
-function isCasualMessage(text: string): boolean {
+function getCasualReply(text: string): string | null {
   const trimmed = text.trim();
-  if (trimmed.length < 3) return true;
-  return CASUAL_PATTERNS.some((p) => p.test(trimmed));
+  if (trimmed.length < 3) {
+    return "Se quiser gerar um artigo, envie o tema completo por texto ou audio.\n\nExemplo: \"Direitos do consumidor em compras online\"";
+  }
+  for (const category of CASUAL_CATEGORIES) {
+    if (category.patterns.some((p) => p.test(trimmed))) {
+      return category.replies[Math.floor(Math.random() * category.replies.length)];
+    }
+  }
+  return null;
 }
 
 // --- Generation lock helpers ---
@@ -392,11 +438,10 @@ bot.on("message:text", async (ctx) => {
     return;
   }
 
-  // Filter casual messages (greetings, etc.)
-  if (isCasualMessage(text)) {
-    await ctx.reply(
-      "Ola! Para gerar um artigo, envie o tema desejado.\n\nExemplo: \"Direitos do consumidor em compras online\""
-    );
+  // Friendly response to casual messages (greetings, thanks, etc.)
+  const casualReply = getCasualReply(text);
+  if (casualReply) {
+    await ctx.reply(casualReply);
     return;
   }
 
