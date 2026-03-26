@@ -12,7 +12,13 @@ import { generateArticle } from "@/lib/openrouter";
 import { transcribeAudio } from "@/lib/groq";
 // onArticlePublished is now triggered via HTTP to avoid blocking the webhook handler
 
-const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || "dummy");
+const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || "dummy", {
+  client: {
+    // Vercel serverless can have high latency to Telegram API
+    // Default grammy timeout is 10s which is too low
+    timeoutSeconds: 60,
+  },
+});
 
 // --- DB-backed state helpers (replaces in-memory Map) ---
 
