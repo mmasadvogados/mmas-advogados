@@ -9,9 +9,7 @@ export async function POST(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : "";
-    console.error("[WEBHOOK FATAL]", message, stack);
-    // ALWAYS return 200 to Telegram to prevent infinite retries
-    // The error is logged — returning 500 causes Telegram to retry the same update forever
-    return NextResponse.json({ ok: true, error_logged: message });
+    console.error("Telegram webhook error:", message, stack);
+    return NextResponse.json({ error: "Internal error", detail: message }, { status: 500 });
   }
 }

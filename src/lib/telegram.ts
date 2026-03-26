@@ -10,15 +10,9 @@ import { eq, and, desc } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { generateArticle } from "@/lib/openrouter";
 import { transcribeAudio } from "@/lib/groq";
-// onArticlePublished is now triggered via HTTP to avoid blocking the webhook handler
+// onArticlePublished replaced by HTTP calls to /api/revalidate + /api/telegram/publish-notify
 
-const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || "dummy", {
-  client: {
-    // Vercel serverless can have high latency to Telegram API
-    // Default grammy timeout is 10s which is too low
-    timeoutSeconds: 60,
-  },
-});
+const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || "dummy");
 
 // --- DB-backed state helpers (replaces in-memory Map) ---
 
@@ -233,9 +227,8 @@ async function safeEditMessage(
     await ctx.editMessageText(text, options);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("message is not modified")) return;
-    // Don't re-throw — editMessage failures shouldn't crash the flow
-    console.error("[safeEditMessage] Failed (non-blocking):", msg);
+    if (msg.includes("message is not modified")) return; // harmless duplicate
+    throw err; // re-throw real errors
   }
 }
 
@@ -243,10 +236,8 @@ async function safeEditMessage(
 // Handle callback queries (inline buttons)
 // ============================================
 bot.on("callback_query:data", async (ctx) => {
-  // Answer callback (non-blocking — timeout here must NOT crash the handler)
-  ctx.answerCallbackQuery().catch((err) =>
-    console.error("[answerCallback] Failed (non-blocking):", err instanceof Error ? err.message : err)
-  );
+  // ALWAYS answer callback FIRST to prevent Telegram retries
+  await ctx.answerCallbackQuery();
 
   const tgId = ctx.from.id;
   const data = ctx.callbackQuery.data;
@@ -282,7 +273,7 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
 
-      // Read article from DB
+      // Read draft article from DB
       const [draft] = await db
         .select()
         .from(articles)
@@ -299,86 +290,36 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
 
-      // Guard: if already published (retry/duplicate click), just confirm
-      if (draft.status === "published") {
-        const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${draft.slug}`;
-        await updateSession(tgId, {
-          botStep: "idle",
-          pendingArticleId: null,
-          pendingTopic: null,
-        });
-        await safeEditMessage(ctx, "Artigo ja foi publicado!");
-        await ctx.reply(
-          `Artigo ja publicado anteriormente.\n\nLink: ${blogUrl}`,
-          {
-            reply_markup: new InlineKeyboard()
-              .url("Ver no Blog", blogUrl)
-              .row()
-              .url(
-                "Compartilhar WhatsApp",
-                `https://wa.me/?text=${encodeURIComponent(draft.title + " " + blogUrl)}`
-              ),
-          }
-        );
-        return;
-      }
-
-      // STEP 1: Clear session FIRST (prevents duplicate actions on retry)
-      console.log(`[APPROVE] Step 1: Clearing session for tgId=${tgId}, articleId=${draft.id}`);
-      await updateSession(tgId, {
-        botStep: "idle",
-        pendingArticleId: null,
-        pendingTopic: null,
-        generatingAt: null,
-      });
-
-      // STEP 2: Update to published (simple WHERE by ID only — idempotency guard above handles duplicates)
-      console.log(`[APPROVE] Step 2: Updating article ${draft.id} from "${draft.status}" to "published"`);
+      // Update draft to published
       const [updated] = await db
         .update(articles)
         .set({ status: "published", publishedAt: new Date() })
         .where(eq(articles.id, draft.id))
         .returning({ id: articles.id, status: articles.status, slug: articles.slug });
 
-      console.log(`[APPROVE] Step 3: Update returned: ${JSON.stringify(updated)}`);
-
       if (!updated || updated.status !== "published") {
-        console.error(`[APPROVE] FAILED: updated=${JSON.stringify(updated)}`);
         await ctx.reply(
-          `ERRO: Falha ao publicar artigo (ID: ${draft.id}). Status: ${updated?.status || "nenhum retorno"}. Tente novamente.`
+          `ERRO: Falha ao publicar artigo (ID: ${draft.id}). Status: ${updated?.status || "desconhecido"}. Tente novamente.`
         );
         return;
       }
 
-      // STEP 3: Verify in DB (belt-and-suspenders — confirm the write persisted)
-      const [verified] = await db
-        .select({ status: articles.status, slug: articles.slug })
-        .from(articles)
-        .where(eq(articles.id, draft.id))
-        .limit(1);
-
-      console.log(`[APPROVE] Step 4: Verified in DB: status=${verified?.status}, slug=${verified?.slug}`);
-
-      if (verified?.status !== "published") {
-        console.error(`[APPROVE] VERIFICATION FAILED! DB shows: ${verified?.status}`);
-        await ctx.reply(
-          `ERRO: Artigo atualizado mas verificacao falhou (status=${verified?.status}). Contate o admin.`
-        );
-        return;
-      }
-
-      // Record status history
       if (session.userId) {
         await db.insert(articleStatusHistory).values({
           articleId: draft.id,
-          fromStatus: draft.status,
+          fromStatus: "draft",
           toStatus: "published",
           changedBy: session.userId,
         });
       }
 
-      // STEP 4: Reply to Telegram IMMEDIATELY (before heavy work)
-      const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${verified.slug}`;
+      await updateSession(tgId, {
+        botStep: "idle",
+        pendingArticleId: null,
+        pendingTopic: null,
+      });
+
+      const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${updated.slug}`;
       const shareKeyboard = new InlineKeyboard()
         .url("Ver no Blog", blogUrl)
         .row()
@@ -391,41 +332,25 @@ bot.on("callback_query:data", async (ctx) => {
       await ctx.reply(
         `Artigo publicado!\n\n` +
           `Titulo: ${draft.title}\n` +
-          `Status: publicado (verificado no banco)\n` +
-          `Link: ${blogUrl}\n\n` +
-          `Blog e newsletter sendo atualizados...`,
+          `Status: publicado\n` +
+          `Link: ${blogUrl}`,
         { reply_markup: shareKeyboard }
       );
 
-      console.log(`[APPROVE] Step 5: Telegram reply sent, firing background tasks`);
-
-      // STEP 5: Trigger revalidation + newsletter via separate HTTP calls
+      // Trigger revalidation + newsletter via separate HTTP calls (non-blocking)
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-
       fetch(`${appUrl}/api/revalidate`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.REVALIDATE_SECRET || ""}`,
-        },
-        body: JSON.stringify({
-          paths: ["/blog", `/blog/${verified.slug}`, "/"],
-        }),
-        signal: AbortSignal.timeout(15000),
-      }).catch((err) => console.error("[APPROVE] Revalidate failed:", err));
-
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paths: ["/blog", `/blog/${updated.slug}`, "/"] }),
+      }).catch(() => {});
       fetch(`${appUrl}/api/telegram/publish-notify`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.REVALIDATE_SECRET || ""}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ articleId: draft.id }),
-        signal: AbortSignal.timeout(15000),
-      }).catch((err) => console.error("[APPROVE] Newsletter failed:", err));
+      }).catch(() => {});
 
     } else if (data === "confirm_topic") {
-      console.log(`[CALLBACK] confirm_topic for tgId=${tgId}`);
       const topic = session.pendingTopic;
       if (!topic) {
         await ctx.reply(
@@ -437,7 +362,6 @@ bot.on("callback_query:data", async (ctx) => {
         ctx,
         `Gerando artigo sobre: "${topic}"...\n\nIsso pode levar ate 60 segundos.`
       );
-      console.log(`[CALLBACK] Starting handleGeneration for topic="${topic}"`);
       await handleGeneration(ctx, tgId, topic);
 
     } else if (data === "reject_topic") {
@@ -663,16 +587,13 @@ async function handleGeneration(
 ) {
   try {
     // Set generation lock
-    console.log(`[GENERATE] Starting for tgId=${tgId}, topic="${topic}"`);
     await updateSession(tgId, {
       generatingAt: new Date(),
       botStep: "idle",
     });
 
     const area = detectArea(topic);
-    console.log(`[GENERATE] Calling LLM, area=${area || "auto"}`);
     const article = await generateArticle({ topic, area, length: "medium", tone: "technical" });
-    console.log(`[GENERATE] LLM returned: title="${article.title}", body=${article.body.length} chars`);
 
     const session = await getSession(tgId);
 
@@ -702,8 +623,6 @@ async function handleGeneration(
         source: "telegram",
       })
       .returning();
-
-    console.log(`[GENERATE] Saved to DB: id=${saved.id}, slug=${saved.slug}`);
 
     // Update session: clear lock, store pending article reference
     await updateSession(tgId, {
@@ -750,25 +669,13 @@ async function handleGeneration(
         ? preview.substring(0, 3950) + "\n\n... (preview truncado)"
         : preview;
 
-    console.log(`[GENERATE] Sending preview to Telegram (${finalPreview.length} chars)`);
-    try {
-      await ctx.reply(finalPreview, {
-        parse_mode: "HTML",
-        reply_markup: keyboard,
-      });
-    } catch (replyErr) {
-      console.error("[GENERATE] Preview reply failed, trying plain text:", replyErr instanceof Error ? replyErr.message : replyErr);
-      // Fallback: send as plain text without HTML
-      await ctx.reply(
-        `Artigo gerado: ${article.title}\n\n` +
-        `(Preview falhou — use os botoes abaixo para aprovar/rejeitar)`,
-        { reply_markup: keyboard }
-      ).catch(() => console.error("[GENERATE] Even plain text reply failed"));
-    }
-    console.log(`[GENERATE] Complete for tgId=${tgId}`);
+    await ctx.reply(finalPreview, {
+      parse_mode: "HTML",
+      reply_markup: keyboard,
+    });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error("[GENERATE] ERROR:", errorMsg, err);
+    console.error("Generation error:", errorMsg, err);
     // Clear lock on error
     try {
       await updateSession(tgId, {
@@ -778,19 +685,9 @@ async function handleGeneration(
     } catch {
       // DB cleanup failed, continue anyway
     }
-    // Send error as plain text — catch if this also fails
-    ctx.reply(`Falha ao gerar artigo: ${errorMsg.substring(0, 200)}`).catch(() => {});
+    // Send as plain text (no Markdown) to avoid double failure
+    await ctx.reply(`Falha ao gerar artigo: ${errorMsg.substring(0, 200)}`);
   }
 }
-
-// Global error handler — prevents grammy from propagating errors to the webhook route
-bot.catch((err) => {
-  const ctx = err.ctx;
-  const e = err.error;
-  const errorMsg = e instanceof Error ? e.message : String(e);
-  console.error(`[BOT ERROR] Update ${ctx.update.update_id}: ${errorMsg}`, e);
-  // Try to notify user, but don't throw if it fails
-  ctx.reply(`Erro interno: ${errorMsg.substring(0, 200)}\n\nTente novamente.`).catch(() => {});
-});
 
 export { bot };
