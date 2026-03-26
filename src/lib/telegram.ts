@@ -217,6 +217,21 @@ bot.command("logout", async (ctx) => {
   await ctx.reply("Sessao encerrada. Use /start para autenticar novamente.");
 });
 
+// Safe edit that ignores "message is not modified" errors (duplicate clicks / Telegram retries)
+async function safeEditMessage(
+  ctx: { editMessageText: (text: string, options?: object) => Promise<unknown> },
+  text: string,
+  options?: object
+) {
+  try {
+    await ctx.editMessageText(text, options);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("message is not modified")) return; // harmless duplicate
+    throw err; // re-throw real errors
+  }
+}
+
 // ============================================
 // Handle callback queries (inline buttons)
 // ============================================
@@ -240,7 +255,7 @@ bot.on("callback_query:data", async (ctx) => {
         .limit(1);
 
       if (!draft) {
-        await ctx.editMessageText("Artigo nao encontrado. Envie novo tema.");
+        await safeEditMessage(ctx, "Artigo nao encontrado. Envie novo tema.");
         await updateSession(tgId, {
           botStep: "idle",
           pendingArticleId: null,
@@ -281,12 +296,13 @@ bot.on("callback_query:data", async (ctx) => {
         pendingTopic: null,
       });
 
-      await ctx.editMessageText(`Artigo publicado!\n\n${blogUrl}`, {
+      await safeEditMessage(ctx, `Artigo publicado!\n\n${blogUrl}`, {
         reply_markup: shareKeyboard,
       });
 
     } else if (data === "confirm_topic" && session.pendingTopic) {
-      await ctx.editMessageText(
+      await safeEditMessage(
+        ctx,
         `Gerando artigo sobre: "${session.pendingTopic}"...\n\nIsso pode levar ate 60 segundos.`
       );
       await handleGeneration(ctx, tgId, session.pendingTopic);
@@ -296,7 +312,7 @@ bot.on("callback_query:data", async (ctx) => {
         botStep: "idle",
         pendingTopic: null,
       });
-      await ctx.editMessageText("Ok, envie o tema correto por texto.");
+      await safeEditMessage(ctx, "Ok, envie o tema correto por texto.");
 
     } else if (data === "reject") {
       // Delete draft article if exists
@@ -308,7 +324,7 @@ bot.on("callback_query:data", async (ctx) => {
         pendingArticleId: null,
         pendingTopic: null,
       });
-      await ctx.editMessageText("Artigo descartado. Envie novo tema quando quiser.");
+      await safeEditMessage(ctx, "Artigo descartado. Envie novo tema quando quiser.");
 
     } else if (data === "regenerate" && session.pendingTopic) {
       // Delete previous draft
@@ -316,7 +332,7 @@ bot.on("callback_query:data", async (ctx) => {
         await db.delete(articles).where(eq(articles.id, session.pendingArticleId));
       }
       await updateSession(tgId, { pendingArticleId: null });
-      await ctx.editMessageText("Regenerando artigo...");
+      await safeEditMessage(ctx, "Regenerando artigo...");
       await handleGeneration(ctx, tgId, session.pendingTopic);
     }
   } catch (err) {
