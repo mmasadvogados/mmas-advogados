@@ -233,8 +233,9 @@ async function safeEditMessage(
     await ctx.editMessageText(text, options);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("message is not modified")) return; // harmless duplicate
-    throw err; // re-throw real errors
+    if (msg.includes("message is not modified")) return;
+    // Don't re-throw — editMessage failures shouldn't crash the flow
+    console.error("[safeEditMessage] Failed (non-blocking):", msg);
   }
 }
 
@@ -242,8 +243,10 @@ async function safeEditMessage(
 // Handle callback queries (inline buttons)
 // ============================================
 bot.on("callback_query:data", async (ctx) => {
-  // ALWAYS answer callback FIRST to prevent Telegram retries
-  await ctx.answerCallbackQuery();
+  // Answer callback (non-blocking — timeout here must NOT crash the handler)
+  ctx.answerCallbackQuery().catch((err) =>
+    console.error("[answerCallback] Failed (non-blocking):", err instanceof Error ? err.message : err)
+  );
 
   const tgId = ctx.from.id;
   const data = ctx.callbackQuery.data;
@@ -748,10 +751,20 @@ async function handleGeneration(
         : preview;
 
     console.log(`[GENERATE] Sending preview to Telegram (${finalPreview.length} chars)`);
-    await ctx.reply(finalPreview, {
-      parse_mode: "HTML",
-      reply_markup: keyboard,
-    });
+    try {
+      await ctx.reply(finalPreview, {
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      });
+    } catch (replyErr) {
+      console.error("[GENERATE] Preview reply failed, trying plain text:", replyErr instanceof Error ? replyErr.message : replyErr);
+      // Fallback: send as plain text without HTML
+      await ctx.reply(
+        `Artigo gerado: ${article.title}\n\n` +
+        `(Preview falhou — use os botoes abaixo para aprovar/rejeitar)`,
+        { reply_markup: keyboard }
+      ).catch(() => console.error("[GENERATE] Even plain text reply failed"));
+    }
     console.log(`[GENERATE] Complete for tgId=${tgId}`);
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -765,8 +778,8 @@ async function handleGeneration(
     } catch {
       // DB cleanup failed, continue anyway
     }
-    // Send as plain text (no Markdown) to avoid double failure
-    await ctx.reply(`Falha ao gerar artigo: ${errorMsg.substring(0, 200)}`);
+    // Send error as plain text — catch if this also fails
+    ctx.reply(`Falha ao gerar artigo: ${errorMsg.substring(0, 200)}`).catch(() => {});
   }
 }
 
