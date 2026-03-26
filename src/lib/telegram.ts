@@ -6,7 +6,7 @@ import {
   articles,
   articleStatusHistory,
 } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { generateArticle } from "@/lib/openrouter";
 import { transcribeAudio } from "@/lib/groq";
@@ -246,16 +246,42 @@ bot.on("callback_query:data", async (ctx) => {
     const session = await getSession(tgId);
     if (!session?.authenticated) return;
 
-    if (data === "approve" && session.pendingArticleId) {
+    if (data === "approve") {
+      let articleId = session.pendingArticleId;
+
+      // Fallback: find most recent draft by this user if pendingArticleId was lost
+      if (!articleId && session.userId) {
+        const [recent] = await db
+          .select({ id: articles.id })
+          .from(articles)
+          .where(
+            and(
+              eq(articles.authorId, session.userId),
+              eq(articles.status, "draft"),
+              eq(articles.source, "telegram")
+            )
+          )
+          .orderBy(desc(articles.createdAt))
+          .limit(1);
+        articleId = recent?.id || null;
+      }
+
+      if (!articleId) {
+        await ctx.reply(
+          "Nenhum artigo pendente para aprovar. Envie um tema para gerar."
+        );
+        return;
+      }
+
       // Read draft article from DB
       const [draft] = await db
         .select()
         .from(articles)
-        .where(eq(articles.id, session.pendingArticleId))
+        .where(eq(articles.id, articleId))
         .limit(1);
 
       if (!draft) {
-        await safeEditMessage(ctx, "Artigo nao encontrado. Envie novo tema.");
+        await ctx.reply("Artigo nao encontrado no banco. Envie novo tema.");
         await updateSession(tgId, {
           botStep: "idle",
           pendingArticleId: null,
@@ -296,16 +322,29 @@ bot.on("callback_query:data", async (ctx) => {
         pendingTopic: null,
       });
 
-      await safeEditMessage(ctx, `Artigo publicado!\n\n${blogUrl}`, {
-        reply_markup: shareKeyboard,
-      });
+      // Clear the preview message and send confirmation as new message
+      await safeEditMessage(ctx, "Processando aprovacao...");
+      await ctx.reply(
+        `Artigo publicado com sucesso!\n\n` +
+          `Titulo: ${draft.title}\n` +
+          `Blog: ${blogUrl}\n\n` +
+          `Newsletter sera enviada automaticamente aos assinantes.`,
+        { reply_markup: shareKeyboard }
+      );
 
-    } else if (data === "confirm_topic" && session.pendingTopic) {
+    } else if (data === "confirm_topic") {
+      const topic = session.pendingTopic;
+      if (!topic) {
+        await ctx.reply(
+          "Tema nao encontrado. Envie o tema novamente por texto ou audio."
+        );
+        return;
+      }
       await safeEditMessage(
         ctx,
-        `Gerando artigo sobre: "${session.pendingTopic}"...\n\nIsso pode levar ate 60 segundos.`
+        `Gerando artigo sobre: "${topic}"...\n\nIsso pode levar ate 60 segundos.`
       );
-      await handleGeneration(ctx, tgId, session.pendingTopic);
+      await handleGeneration(ctx, tgId, topic);
 
     } else if (data === "reject_topic") {
       await updateSession(tgId, {
@@ -317,23 +356,42 @@ bot.on("callback_query:data", async (ctx) => {
     } else if (data === "reject") {
       // Delete draft article if exists
       if (session.pendingArticleId) {
-        await db.delete(articles).where(eq(articles.id, session.pendingArticleId));
+        await db
+          .delete(articles)
+          .where(eq(articles.id, session.pendingArticleId));
       }
       await updateSession(tgId, {
         botStep: "idle",
         pendingArticleId: null,
         pendingTopic: null,
       });
-      await safeEditMessage(ctx, "Artigo descartado. Envie novo tema quando quiser.");
+      await safeEditMessage(
+        ctx,
+        "Artigo descartado. Envie novo tema quando quiser."
+      );
 
-    } else if (data === "regenerate" && session.pendingTopic) {
+    } else if (data === "regenerate") {
+      const topic = session.pendingTopic;
+      if (!topic) {
+        await ctx.reply(
+          "Tema nao encontrado. Envie o tema novamente por texto ou audio."
+        );
+        return;
+      }
       // Delete previous draft
       if (session.pendingArticleId) {
-        await db.delete(articles).where(eq(articles.id, session.pendingArticleId));
+        await db
+          .delete(articles)
+          .where(eq(articles.id, session.pendingArticleId));
       }
       await updateSession(tgId, { pendingArticleId: null });
       await safeEditMessage(ctx, "Regenerando artigo...");
-      await handleGeneration(ctx, tgId, session.pendingTopic);
+      await handleGeneration(ctx, tgId, topic);
+
+    } else {
+      await ctx.reply(
+        "Nenhuma acao pendente. Envie um tema para gerar novo artigo."
+      );
     }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -345,12 +403,12 @@ bot.on("callback_query:data", async (ctx) => {
     } catch {
       // silently ignore if reply also fails
     }
+    // Only clean up lock/step — preserve pendingArticleId and pendingTopic
+    // so the user can still approve/reject after an error
     try {
       await updateSession(tgId, {
         botStep: "idle",
         generatingAt: null,
-        pendingArticleId: null,
-        pendingTopic: null,
       });
     } catch {
       // DB cleanup failed, continue anyway
