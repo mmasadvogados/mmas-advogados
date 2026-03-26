@@ -755,4 +755,14 @@ async function handleGeneration(
   }
 }
 
+// Global error handler — prevents grammy from propagating errors to the webhook route
+bot.catch((err) => {
+  const ctx = err.ctx;
+  const e = err.error;
+  const errorMsg = e instanceof Error ? e.message : String(e);
+  console.error(`[BOT ERROR] Update ${ctx.update.update_id}: ${errorMsg}`, e);
+  // Try to notify user, but don't throw if it fails
+  ctx.reply(`Erro interno: ${errorMsg.substring(0, 200)}\n\nTente novamente.`).catch(() => {});
+});
+
 export { bot };
