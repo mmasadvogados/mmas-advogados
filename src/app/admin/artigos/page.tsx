@@ -15,7 +15,7 @@ const statusColors: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   draft: "Rascunho",
-  review: "Revisão",
+  review: "Revisao",
   published: "Publicado",
   rejected: "Rejeitado",
 };
@@ -23,6 +23,8 @@ const statusLabels: Record<string, string> = {
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +37,9 @@ export default function ArticlesPage() {
       if (!cancelled) setLoading(false);
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const fetchArticles = async () => {
@@ -50,6 +54,34 @@ export default function ArticlesPage() {
     if (!confirm("Tem certeza que deseja excluir este artigo?")) return;
     await fetch(`/api/articles/${id}`, { method: "DELETE" });
     setArticles((prev) => prev.filter((a) => a.id !== id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const deleteSelected = async () => {
+    if (selected.size === 0) return;
+    if (
+      !confirm(
+        `Tem certeza que deseja excluir ${selected.size} artigo(s)? Esta acao nao pode ser desfeita.`
+      )
+    )
+      return;
+
+    setDeleting(true);
+    try {
+      await Promise.all(
+        Array.from(selected).map((id) =>
+          fetch(`/api/articles/${id}`, { method: "DELETE" })
+        )
+      );
+      setArticles((prev) => prev.filter((a) => !selected.has(a.id)));
+      setSelected(new Set());
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const updateStatus = async (id: string, status: string) => {
@@ -59,6 +91,26 @@ export default function ArticlesPage() {
       body: JSON.stringify({ status }),
     });
     fetchArticles();
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === articles.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(articles.map((a) => a.id)));
+    }
   };
 
   return (
@@ -72,16 +124,32 @@ export default function ArticlesPage() {
             Gerencie os artigos do blog
           </p>
         </div>
-        <Link href="/admin/artigos/gerar">
-          <Button>
-            <Sparkles className="w-4 h-4" />
-            Gerar Novo
-          </Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          {selected.size > 0 && (
+            <Button
+              onClick={deleteSelected}
+              disabled={deleting}
+              className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
+            >
+              <Trash2 className="w-4 h-4" />
+              {deleting
+                ? "Excluindo..."
+                : `Excluir ${selected.size} selecionado(s)`}
+            </Button>
+          )}
+          <Link href="/admin/artigos/gerar">
+            <Button>
+              <Sparkles className="w-4 h-4" />
+              Gerar Novo
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {loading ? (
-        <div className="text-[var(--color-foreground-muted)]">Carregando...</div>
+        <div className="text-[var(--color-foreground-muted)]">
+          Carregando...
+        </div>
       ) : articles.length === 0 ? (
         <div className="text-center py-16">
           <FileText className="w-12 h-12 mx-auto text-[var(--color-foreground-muted)]/30 mb-4" />
@@ -97,17 +165,31 @@ export default function ArticlesPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-[var(--color-surface)] border-b border-[var(--color-border)]">
+                <th className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={
+                      articles.length > 0 &&
+                      selected.size === articles.length
+                    }
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-[var(--color-border)] accent-[var(--color-accent)] cursor-pointer"
+                  />
+                </th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-[var(--color-foreground-muted)] uppercase">
-                  Título
+                  Titulo
                 </th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-[var(--color-foreground-muted)] uppercase">
                   Status
                 </th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-[var(--color-foreground-muted)] uppercase">
+                  Origem
+                </th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[var(--color-foreground-muted)] uppercase">
                   Data
                 </th>
                 <th className="text-right px-6 py-3 text-xs font-medium text-[var(--color-foreground-muted)] uppercase">
-                  Ações
+                  Acoes
                 </th>
               </tr>
             </thead>
@@ -115,8 +197,18 @@ export default function ArticlesPage() {
               {articles.map((article) => (
                 <tr
                   key={article.id}
-                  className="border-b border-[var(--color-border)] hover:bg-white/[0.02]"
+                  className={`border-b border-[var(--color-border)] hover:bg-white/[0.02] ${
+                    selected.has(article.id) ? "bg-[var(--color-accent)]/5" : ""
+                  }`}
                 >
+                  <td className="px-4 py-4">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(article.id)}
+                      onChange={() => toggleSelect(article.id)}
+                      className="w-4 h-4 rounded border-[var(--color-border)] accent-[var(--color-accent)] cursor-pointer"
+                    />
+                  </td>
                   <td className="px-6 py-4">
                     <p className="text-sm font-medium text-[var(--color-foreground)] truncate max-w-xs">
                       {article.title}
@@ -127,6 +219,11 @@ export default function ArticlesPage() {
                       className={`px-3 py-1 text-xs rounded-full ${statusColors[article.status]}`}
                     >
                       {statusLabels[article.status]}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-xs text-[var(--color-foreground-muted)]">
+                      {article.source === "telegram" ? "Telegram" : "Web"}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-[var(--color-foreground-muted)]">
@@ -144,7 +241,9 @@ export default function ArticlesPage() {
                       </Link>
                       {article.status === "draft" && (
                         <button
-                          onClick={() => updateStatus(article.id, "published")}
+                          onClick={() =>
+                            updateStatus(article.id, "published")
+                          }
                           className="text-xs px-3 py-1 rounded bg-green-500/10 text-green-400 hover:bg-green-500/20"
                         >
                           Publicar
