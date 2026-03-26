@@ -416,6 +416,7 @@ bot.on("callback_query:data", async (ctx) => {
       }).catch((err) => console.error("[APPROVE] Newsletter failed:", err));
 
     } else if (data === "confirm_topic") {
+      console.log(`[CALLBACK] confirm_topic for tgId=${tgId}`);
       const topic = session.pendingTopic;
       if (!topic) {
         await ctx.reply(
@@ -427,6 +428,7 @@ bot.on("callback_query:data", async (ctx) => {
         ctx,
         `Gerando artigo sobre: "${topic}"...\n\nIsso pode levar ate 60 segundos.`
       );
+      console.log(`[CALLBACK] Starting handleGeneration for topic="${topic}"`);
       await handleGeneration(ctx, tgId, topic);
 
     } else if (data === "reject_topic") {
@@ -652,13 +654,16 @@ async function handleGeneration(
 ) {
   try {
     // Set generation lock
+    console.log(`[GENERATE] Starting for tgId=${tgId}, topic="${topic}"`);
     await updateSession(tgId, {
       generatingAt: new Date(),
       botStep: "idle",
     });
 
     const area = detectArea(topic);
+    console.log(`[GENERATE] Calling LLM, area=${area || "auto"}`);
     const article = await generateArticle({ topic, area, length: "medium", tone: "technical" });
+    console.log(`[GENERATE] LLM returned: title="${article.title}", body=${article.body.length} chars`);
 
     const session = await getSession(tgId);
 
@@ -688,6 +693,8 @@ async function handleGeneration(
         source: "telegram",
       })
       .returning();
+
+    console.log(`[GENERATE] Saved to DB: id=${saved.id}, slug=${saved.slug}`);
 
     // Update session: clear lock, store pending article reference
     await updateSession(tgId, {
@@ -734,13 +741,15 @@ async function handleGeneration(
         ? preview.substring(0, 3950) + "\n\n... (preview truncado)"
         : preview;
 
+    console.log(`[GENERATE] Sending preview to Telegram (${finalPreview.length} chars)`);
     await ctx.reply(finalPreview, {
       parse_mode: "HTML",
       reply_markup: keyboard,
     });
+    console.log(`[GENERATE] Complete for tgId=${tgId}`);
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error("Generation error:", errorMsg, err);
+    console.error("[GENERATE] ERROR:", errorMsg, err);
     // Clear lock on error
     try {
       await updateSession(tgId, {
