@@ -291,10 +291,18 @@ bot.on("callback_query:data", async (ctx) => {
       }
 
       // Update draft to published
-      await db
+      const [updated] = await db
         .update(articles)
         .set({ status: "published", publishedAt: new Date() })
-        .where(eq(articles.id, draft.id));
+        .where(eq(articles.id, draft.id))
+        .returning({ id: articles.id, status: articles.status, slug: articles.slug });
+
+      if (!updated || updated.status !== "published") {
+        await ctx.reply(
+          `ERRO: Falha ao publicar artigo (ID: ${draft.id}). Status: ${updated?.status || "desconhecido"}. Tente novamente.`
+        );
+        return;
+      }
 
       if (session.userId) {
         await db.insert(articleStatusHistory).values({
@@ -307,7 +315,7 @@ bot.on("callback_query:data", async (ctx) => {
 
       onArticlePublished(draft);
 
-      const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${draft.slug}`;
+      const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${updated.slug}`;
       const shareKeyboard = new InlineKeyboard()
         .url("Ver no Blog", blogUrl)
         .row()
@@ -323,12 +331,13 @@ bot.on("callback_query:data", async (ctx) => {
       });
 
       // Clear the preview message and send confirmation as new message
-      await safeEditMessage(ctx, "Processando aprovacao...");
+      await safeEditMessage(ctx, "Publicando...");
       await ctx.reply(
-        `Artigo publicado com sucesso!\n\n` +
+        `Artigo publicado!\n\n` +
           `Titulo: ${draft.title}\n` +
-          `Blog: ${blogUrl}\n\n` +
-          `Newsletter sera enviada automaticamente aos assinantes.`,
+          `Status: publicado (confirmado no banco)\n` +
+          `Link: ${blogUrl}\n\n` +
+          `Newsletter sera enviada automaticamente.`,
         { reply_markup: shareKeyboard }
       );
 

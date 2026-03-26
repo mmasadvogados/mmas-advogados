@@ -4,6 +4,8 @@ import { eq, count, isNull, and } from "drizzle-orm";
 import { FileText, Users, Eye, PenTool } from "lucide-react";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const [publishedCount] = await db
     .select({ count: count() })
