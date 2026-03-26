@@ -313,7 +313,17 @@ bot.on("callback_query:data", async (ctx) => {
         });
       }
 
-      onArticlePublished(draft);
+      // Clear the preview message immediately so user sees progress
+      await safeEditMessage(ctx, "Publicando e disparando newsletter...");
+
+      // Await publish side-effects (revalidação + newsletter)
+      const publishResult = await onArticlePublished({
+        id: draft.id,
+        title: draft.title,
+        slug: updated.slug,
+        body: draft.body,
+        summary: draft.summary,
+      });
 
       const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${updated.slug}`;
       const shareKeyboard = new InlineKeyboard()
@@ -330,14 +340,25 @@ bot.on("callback_query:data", async (ctx) => {
         pendingTopic: null,
       });
 
-      // Clear the preview message and send confirmation as new message
-      await safeEditMessage(ctx, "Publicando...");
+      // Build confirmation with real feedback
+      const cacheStatus = publishResult.revalidated ? "atualizado" : "pendente (ate 1 min)";
+      let newsletterStatus = "Nenhum assinante confirmado";
+      if (publishResult.newsletterSent > 0) {
+        newsletterStatus = `Enviada para ${publishResult.newsletterSent} assinante(s)`;
+        if (publishResult.newsletterError > 0) {
+          newsletterStatus += ` (${publishResult.newsletterError} falha(s))`;
+        }
+      } else if (publishResult.newsletterError > 0) {
+        newsletterStatus = `Falha ao enviar (${publishResult.newsletterError} erro(s))`;
+      }
+
       await ctx.reply(
         `Artigo publicado!\n\n` +
           `Titulo: ${draft.title}\n` +
-          `Status: publicado (confirmado no banco)\n` +
-          `Link: ${blogUrl}\n\n` +
-          `Newsletter sera enviada automaticamente.`,
+          `Status: publicado\n` +
+          `Blog: ${cacheStatus}\n` +
+          `Newsletter: ${newsletterStatus}\n` +
+          `Link: ${blogUrl}`,
         { reply_markup: shareKeyboard }
       );
 
