@@ -1,166 +1,277 @@
 import { Bot, InlineKeyboard } from "grammy";
 import { db } from "@/lib/db";
-import { telegramSessions, users, articles, articleStatusHistory } from "@/lib/db/schema";
+import {
+  telegramSessions,
+  users,
+  articles,
+  articleStatusHistory,
+} from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { generateArticle } from "@/lib/openrouter";
 import { transcribeAudio } from "@/lib/groq";
 import { onArticlePublished } from "@/lib/article-utils";
 
-
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || "dummy");
 
-// State management (in-memory for few users)
-const userState = new Map<
-  number,
-  {
-    step: "idle" | "awaiting_password" | "awaiting_confirmation";
-    pendingArticle?: { title: string; body: string; summary: string; tags: string[]; seoDescription: string };
-    pendingTopic?: string;
-  }
->();
+// --- DB-backed state helpers (replaces in-memory Map) ---
 
-function getState(userId: number) {
-  return userState.get(userId) || { step: "idle" as const };
+async function getSession(tgId: number) {
+  return db.query.telegramSessions.findFirst({
+    where: eq(telegramSessions.telegramUserId, tgId),
+  });
 }
 
-// Auto-detect practice area from topic keywords
+async function updateSession(
+  tgId: number,
+  data: Partial<{
+    botStep: string;
+    pendingTopic: string | null;
+    pendingArticleId: string | null;
+    generatingAt: Date | null;
+    authenticated: boolean;
+    userId: string | null;
+  }>
+) {
+  await db
+    .update(telegramSessions)
+    .set(data)
+    .where(eq(telegramSessions.telegramUserId, tgId));
+}
+
+// --- Casual message filter ---
+
+const CASUAL_PATTERNS = [
+  /^(oi|ol[aá]|hey|hello|hi|e a[ií]|eai|fala|salve|opa)\b/i,
+  /^(bom dia|boa tarde|boa noite|bom fds|bom final de semana)\b/i,
+  /^(obrigad[oa]|valeu|brigad[oa]|vlw|thanks|tks)\b/i,
+  /^(tchau|at[eé] mais|at[eé] logo|flw|falou)\b/i,
+  /^(tudo bem|tudo certo|como vai|beleza|blz|td bem)\b/i,
+  /^(ok|sim|n[aã]o|s|n|yes|no)\s*[.!?]*$/i,
+];
+
+function isCasualMessage(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 3) return true;
+  return CASUAL_PATTERNS.some((p) => p.test(trimmed));
+}
+
+// --- Generation lock helpers ---
+
+function isGenerationLocked(session: { generatingAt: Date | null }): boolean {
+  if (!session.generatingAt) return false;
+  const elapsed = Date.now() - new Date(session.generatingAt).getTime();
+  return elapsed < 120_000; // 2 min lock
+}
+
+// --- Auto-detect practice area from topic keywords ---
+
 function detectArea(topic: string): string | undefined {
   const lower = topic.toLowerCase();
   const areaKeywords: Record<string, string[]> = {
-    "Internet": ["internet", "digital", "lgpd", "dados", "cibernético", "cibernetico", "online", "rede social", "privacidade", "tecnologia"],
-    "Civil": ["civil", "contrato", "família", "familia", "herança", "heranca", "consumidor", "compra", "indenização", "indenizacao", "dano moral", "divórcio", "divorcio", "pensão", "guarda", "inventário", "inventario", "usucapião", "usucapiao"],
-    "Empresarial": ["empresa", "societário", "societario", "falência", "falencia", "recuperação judicial", "compliance", "sócio", "socio", "cnpj", "contrato social"],
-    "Tributário": ["tribut", "imposto", "icms", "issqn", "irpf", "irpj", "fiscal", "contribuição", "contribuicao", "simples nacional", "taxa"],
-    "Agrário e Ambiental": ["agrário", "agrario", "rural", "ambiental", "terra", "fazenda", "posse", "propriedade rural", "desmatamento", "APP", "reserva legal", "divisa"],
-    "Cooperativas": ["cooperativa", "cooperado", "assembleia", "associação", "associacao"],
-    "Administrativo": ["administrativo", "licitação", "licitacao", "concurso", "servidor público", "servidor publico", "improbidade", "pregão", "pregao"],
-    "Trabalho": ["trabalho", "trabalhista", "clt", "empregado", "empregador", "demissão", "demissao", "rescisão", "rescisao", "fgts", "férias", "ferias", "hora extra", "assédio", "assedio"],
-    "Previdenciário": ["previdência", "previdencia", "aposentadoria", "inss", "benefício", "beneficio", "incapacidade", "auxílio", "auxilio", "pensão por morte"],
-    "Direito Médico e Hospitalar": ["médico", "medico", "hospital", "saúde", "saude", "erro médico", "plano de saúde", "sus", "anvisa"],
-    "Direito Eleitoral": ["eleitor", "eleitoral", "candidat", "voto", "urna", "campanha", "partido", "propaganda eleitoral"],
+    Internet: [
+      "internet", "digital", "lgpd", "dados", "cibernético", "cibernetico",
+      "online", "rede social", "privacidade", "tecnologia",
+    ],
+    Civil: [
+      "civil", "contrato", "família", "familia", "herança", "heranca",
+      "consumidor", "compra", "indenização", "indenizacao", "dano moral",
+      "divórcio", "divorcio", "pensão", "guarda", "inventário", "inventario",
+      "usucapião", "usucapiao",
+    ],
+    Empresarial: [
+      "empresa", "societário", "societario", "falência", "falencia",
+      "recuperação judicial", "compliance", "sócio", "socio", "cnpj",
+      "contrato social",
+    ],
+    "Tributário": [
+      "tribut", "imposto", "icms", "issqn", "irpf", "irpj", "fiscal",
+      "contribuição", "contribuicao", "simples nacional", "taxa",
+    ],
+    "Agrário e Ambiental": [
+      "agrário", "agrario", "rural", "ambiental", "terra", "fazenda", "posse",
+      "propriedade rural", "desmatamento", "APP", "reserva legal", "divisa",
+    ],
+    Cooperativas: [
+      "cooperativa", "cooperado", "assembleia", "associação", "associacao",
+    ],
+    Administrativo: [
+      "administrativo", "licitação", "licitacao", "concurso",
+      "servidor público", "servidor publico", "improbidade", "pregão", "pregao",
+    ],
+    Trabalho: [
+      "trabalho", "trabalhista", "clt", "empregado", "empregador", "demissão",
+      "demissao", "rescisão", "rescisao", "fgts", "férias", "ferias",
+      "hora extra", "assédio", "assedio",
+    ],
+    "Previdenciário": [
+      "previdência", "previdencia", "aposentadoria", "inss", "benefício",
+      "beneficio", "incapacidade", "auxílio", "auxilio", "pensão por morte",
+    ],
+    "Direito Médico e Hospitalar": [
+      "médico", "medico", "hospital", "saúde", "saude", "erro médico",
+      "plano de saúde", "sus", "anvisa",
+    ],
+    "Direito Eleitoral": [
+      "eleitor", "eleitoral", "candidat", "voto", "urna", "campanha",
+      "partido", "propaganda eleitoral",
+    ],
   };
   for (const [area, keywords] of Object.entries(areaKeywords)) {
-    if (keywords.some(k => lower.includes(k))) return area;
+    if (keywords.some((k) => lower.includes(k))) return area;
   }
   return undefined;
 }
 
+// ============================================
 // /start command
+// ============================================
 bot.command("start", async (ctx) => {
   const tgId = ctx.from?.id;
   if (!tgId) return;
 
-  const session = await db.query.telegramSessions.findFirst({
-    where: eq(telegramSessions.telegramUserId, tgId),
-  });
+  const session = await getSession(tgId);
 
   if (session?.authenticated) {
-    await ctx.reply("Você já está autenticado! Envie um tema ou áudio para gerar artigo.");
+    await ctx.reply(
+      "Voce ja esta autenticado! Envie um tema para gerar artigo.\n\nExemplo: \"Direitos do consumidor em compras online\""
+    );
     return;
   }
 
-  userState.set(tgId, { step: "awaiting_password" });
+  // Create or update session with awaiting_password step
+  if (session) {
+    await updateSession(tgId, { botStep: "awaiting_password" });
+  } else {
+    await db.insert(telegramSessions).values({
+      telegramUserId: tgId,
+      authenticated: false,
+      botStep: "awaiting_password",
+    });
+  }
+
   await ctx.reply("Bem-vindo ao MMAS Artigos Bot!\n\nDigite sua senha para autenticar:");
 });
 
+// ============================================
 // /logout command
+// ============================================
 bot.command("logout", async (ctx) => {
   const tgId = ctx.from?.id;
   if (!tgId) return;
 
-  await db
-    .update(telegramSessions)
-    .set({ authenticated: false })
-    .where(eq(telegramSessions.telegramUserId, tgId));
+  await updateSession(tgId, {
+    authenticated: false,
+    botStep: "idle",
+    pendingTopic: null,
+    pendingArticleId: null,
+    generatingAt: null,
+  });
 
-  userState.delete(tgId);
-  await ctx.reply("Sessão encerrada. Use /start para autenticar novamente.");
+  await ctx.reply("Sessao encerrada. Use /start para autenticar novamente.");
 });
 
+// ============================================
 // Handle callback queries (inline buttons)
+// ============================================
 bot.on("callback_query:data", async (ctx) => {
-  // SEMPRE responder ao callback PRIMEIRO para evitar retries do Telegram
+  // ALWAYS answer callback FIRST to prevent Telegram retries
   await ctx.answerCallbackQuery();
 
   const tgId = ctx.from.id;
   const data = ctx.callbackQuery.data;
-  const state = getState(tgId);
 
   try {
-    if (data === "approve" && state.pendingArticle) {
-      const article = state.pendingArticle;
-      const session = await db.query.telegramSessions.findFirst({
-        where: eq(telegramSessions.telegramUserId, tgId),
-      });
+    const session = await getSession(tgId);
+    if (!session?.authenticated) return;
 
-      const slug =
-        article.title
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "")
-          .substring(0, 100) +
-        "-" +
-        Date.now().toString(36);
+    if (data === "approve" && session.pendingArticleId) {
+      // Read draft article from DB
+      const [draft] = await db
+        .select()
+        .from(articles)
+        .where(eq(articles.id, session.pendingArticleId))
+        .limit(1);
 
-      const [saved] = await db
-        .insert(articles)
-        .values({
-          title: article.title,
-          slug,
-          body: article.body,
-          summary: article.summary,
-          tags: article.tags,
-          seoDescription: article.seoDescription,
-          status: "published",
-          authorId: session?.userId || null,
-          source: "telegram",
-          publishedAt: new Date(),
-        })
-        .returning();
+      if (!draft) {
+        await ctx.editMessageText("Artigo nao encontrado. Envie novo tema.");
+        await updateSession(tgId, {
+          botStep: "idle",
+          pendingArticleId: null,
+          pendingTopic: null,
+        });
+        return;
+      }
 
-      if (session?.userId) {
+      // Update draft to published
+      await db
+        .update(articles)
+        .set({ status: "published", publishedAt: new Date() })
+        .where(eq(articles.id, draft.id));
+
+      if (session.userId) {
         await db.insert(articleStatusHistory).values({
-          articleId: saved.id,
-          fromStatus: null,
+          articleId: draft.id,
+          fromStatus: "draft",
           toStatus: "published",
           changedBy: session.userId,
         });
       }
 
-      onArticlePublished(saved);
+      onArticlePublished(draft);
 
-      const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${slug}`;
+      const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${draft.slug}`;
       const shareKeyboard = new InlineKeyboard()
         .url("Ver no Blog", blogUrl)
         .row()
         .url(
           "Compartilhar WhatsApp",
-          `https://wa.me/?text=${encodeURIComponent(article.title + " " + blogUrl)}`
+          `https://wa.me/?text=${encodeURIComponent(draft.title + " " + blogUrl)}`
         );
 
-      userState.set(tgId, { step: "idle" });
+      await updateSession(tgId, {
+        botStep: "idle",
+        pendingArticleId: null,
+        pendingTopic: null,
+      });
+
       await ctx.editMessageText(`Artigo publicado!\n\n${blogUrl}`, {
         reply_markup: shareKeyboard,
       });
 
-    } else if (data === "confirm_topic" && state.pendingTopic) {
-      await ctx.editMessageText(`Gerando artigo sobre: "${state.pendingTopic}"...`);
-      await handleGeneration(ctx, tgId, state.pendingTopic);
+    } else if (data === "confirm_topic" && session.pendingTopic) {
+      await ctx.editMessageText(
+        `Gerando artigo sobre: "${session.pendingTopic}"...\n\nIsso pode levar ate 60 segundos.`
+      );
+      await handleGeneration(ctx, tgId, session.pendingTopic);
 
     } else if (data === "reject_topic") {
-      userState.set(tgId, { step: "idle" });
+      await updateSession(tgId, {
+        botStep: "idle",
+        pendingTopic: null,
+      });
       await ctx.editMessageText("Ok, envie o tema correto por texto.");
 
     } else if (data === "reject") {
-      userState.set(tgId, { step: "idle" });
+      // Delete draft article if exists
+      if (session.pendingArticleId) {
+        await db.delete(articles).where(eq(articles.id, session.pendingArticleId));
+      }
+      await updateSession(tgId, {
+        botStep: "idle",
+        pendingArticleId: null,
+        pendingTopic: null,
+      });
       await ctx.editMessageText("Artigo descartado. Envie novo tema quando quiser.");
 
-    } else if (data === "regenerate" && state.pendingTopic) {
+    } else if (data === "regenerate" && session.pendingTopic) {
+      // Delete previous draft
+      if (session.pendingArticleId) {
+        await db.delete(articles).where(eq(articles.id, session.pendingArticleId));
+      }
+      await updateSession(tgId, { pendingArticleId: null });
       await ctx.editMessageText("Regenerando artigo...");
-      await handleGeneration(ctx, tgId, state.pendingTopic);
+      await handleGeneration(ctx, tgId, session.pendingTopic);
     }
   } catch (err) {
     console.error("Callback error:", err);
@@ -169,23 +280,34 @@ bot.on("callback_query:data", async (ctx) => {
     } catch {
       // silently ignore if reply also fails
     }
-    userState.set(tgId, { step: "idle" });
+    await updateSession(tgId, {
+      botStep: "idle",
+      generatingAt: null,
+      pendingArticleId: null,
+      pendingTopic: null,
+    });
   }
 });
 
+// ============================================
 // Handle voice messages
+// ============================================
 bot.on("message:voice", async (ctx) => {
   const tgId = ctx.from.id;
-  const session = await db.query.telegramSessions.findFirst({
-    where: eq(telegramSessions.telegramUserId, tgId),
-  });
+  const session = await getSession(tgId);
 
   if (!session?.authenticated) {
     await ctx.reply("Use /start para autenticar primeiro.");
     return;
   }
 
-  await ctx.reply("Transcrevendo áudio...");
+  // Check generation lock
+  if (isGenerationLocked(session)) {
+    await ctx.reply("Ja estou gerando um artigo. Aguarde a conclusao.");
+    return;
+  }
+
+  await ctx.reply("Transcrevendo audio...");
 
   try {
     const file = await ctx.getFile();
@@ -196,34 +318,47 @@ bot.on("message:voice", async (ctx) => {
     const transcription = await transcribeAudio(buffer);
 
     if (!transcription || transcription.length < 3) {
-      await ctx.reply("Não consegui transcrever o áudio. Tente novamente ou digite o tema.");
+      await ctx.reply(
+        "Nao consegui transcrever o audio. Tente novamente ou digite o tema."
+      );
       return;
     }
 
-    userState.set(tgId, { ...getState(tgId), pendingTopic: transcription });
+    // Store pending topic in DB and set awaiting_confirmation
+    await updateSession(tgId, {
+      botStep: "awaiting_confirmation",
+      pendingTopic: transcription,
+    });
 
     const keyboard = new InlineKeyboard()
       .text("Sim, gerar artigo", "confirm_topic")
-      .text("Não, corrigir", "reject_topic");
+      .text("Nao, corrigir", "reject_topic");
 
-    await ctx.reply(`Transcrição: *${transcription}*\n\nGerar artigo sobre este tema?`, {
-      parse_mode: "Markdown",
-      reply_markup: keyboard,
-    });
+    await ctx.reply(
+      `Transcricao: *${transcription}*\n\nGerar artigo sobre este tema?`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: keyboard,
+      }
+    );
   } catch (err) {
     console.error("STT error:", err);
-    await ctx.reply("Erro ao transcrever áudio. Tente digitar o tema.");
+    await ctx.reply("Erro ao transcrever audio. Tente digitar o tema.");
   }
 });
 
+// ============================================
 // Handle text messages
+// ============================================
 bot.on("message:text", async (ctx) => {
   const tgId = ctx.from.id;
   const text = ctx.message.text;
-  const state = getState(tgId);
 
-  // Password auth
-  if (state.step === "awaiting_password") {
+  // Read state from DB (survives cold starts)
+  const session = await getSession(tgId);
+
+  // Password auth flow
+  if (session?.botStep === "awaiting_password") {
     const allUsers = await db.select().from(users);
     let authenticatedUser = null;
 
@@ -239,55 +374,113 @@ bot.on("message:text", async (ctx) => {
       return;
     }
 
-    const existing = await db.query.telegramSessions.findFirst({
-      where: eq(telegramSessions.telegramUserId, tgId),
+    await updateSession(tgId, {
+      authenticated: true,
+      userId: authenticatedUser.id,
+      botStep: "idle",
     });
 
-    if (existing) {
-      await db
-        .update(telegramSessions)
-        .set({ authenticated: true, userId: authenticatedUser.id })
-        .where(eq(telegramSessions.telegramUserId, tgId));
-    } else {
-      await db.insert(telegramSessions).values({
-        telegramUserId: tgId,
-        userId: authenticatedUser.id,
-        authenticated: true,
-      });
-    }
-
-    userState.set(tgId, { step: "idle" });
-    await ctx.reply("Autenticado! Envie um tema ou áudio para gerar artigo.");
+    await ctx.reply(
+      "Autenticado! Envie um tema para gerar artigo.\n\nExemplo: \"Direitos do consumidor em compras online\""
+    );
     return;
   }
 
   // Check auth
-  const session = await db.query.telegramSessions.findFirst({
-    where: eq(telegramSessions.telegramUserId, tgId),
-  });
-
   if (!session?.authenticated) {
     await ctx.reply("Use /start para autenticar primeiro.");
     return;
   }
 
-  // Generate article from text topic
-  await ctx.reply(`Gerando artigo sobre: "${text}"...\n\nIsso pode levar até 60 segundos.`);
-  await handleGeneration(ctx, tgId, text);
+  // Filter casual messages (greetings, etc.)
+  if (isCasualMessage(text)) {
+    await ctx.reply(
+      "Ola! Para gerar um artigo, envie o tema desejado.\n\nExemplo: \"Direitos do consumidor em compras online\""
+    );
+    return;
+  }
+
+  // Check generation lock
+  if (isGenerationLocked(session)) {
+    await ctx.reply("Ja estou gerando um artigo. Aguarde a conclusao.");
+    return;
+  }
+
+  // Confirmation step: store topic, ask before generating
+  await updateSession(tgId, {
+    botStep: "awaiting_confirmation",
+    pendingTopic: text,
+  });
+
+  const detectedArea = detectArea(text);
+  const areaHint = detectedArea ? `\nArea detectada: ${detectedArea}` : "";
+
+  const keyboard = new InlineKeyboard()
+    .text("Sim, gerar artigo", "confirm_topic")
+    .text("Cancelar", "reject_topic");
+
+  await ctx.reply(
+    `Gerar artigo sobre: *${text}*?${areaHint}\n\n(Geracao leva ate 60 segundos)`,
+    { parse_mode: "Markdown", reply_markup: keyboard }
+  );
 });
 
-async function handleGeneration(ctx: { reply: (text: string, options?: object) => Promise<unknown> }, tgId: number, topic: string) {
+// ============================================
+// Article generation with DB lock
+// ============================================
+async function handleGeneration(
+  ctx: { reply: (text: string, options?: object) => Promise<unknown> },
+  tgId: number,
+  topic: string
+) {
+  // Set generation lock
+  await updateSession(tgId, {
+    generatingAt: new Date(),
+    botStep: "idle",
+  });
+
   try {
     const area = detectArea(topic);
     const article = await generateArticle({ topic, area });
 
-    userState.set(tgId, {
-      step: "idle",
-      pendingArticle: article,
+    const session = await getSession(tgId);
+
+    // Save as draft article in DB
+    const slug =
+      article.title
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .substring(0, 100) +
+      "-" +
+      Date.now().toString(36);
+
+    const [saved] = await db
+      .insert(articles)
+      .values({
+        title: article.title,
+        slug,
+        body: article.body,
+        summary: article.summary,
+        tags: article.tags,
+        seoDescription: article.seoDescription,
+        status: "draft",
+        authorId: session?.userId || null,
+        source: "telegram",
+      })
+      .returning();
+
+    // Update session: clear lock, store pending article reference
+    await updateSession(tgId, {
+      generatingAt: null,
       pendingTopic: topic,
+      pendingArticleId: saved.id,
+      botStep: "idle",
     });
 
-    const areaLabel = area ? `\nÁrea detectada: ${area}` : "";
+    const areaLabel = area ? `\nArea detectada: ${area}` : "";
     const preview =
       `*${article.title}*\n\n` +
       `${article.summary}\n` +
@@ -306,8 +499,12 @@ async function handleGeneration(ctx: { reply: (text: string, options?: object) =
     });
   } catch (err) {
     console.error("Generation error:", err);
+    // Clear lock on error
+    await updateSession(tgId, {
+      generatingAt: null,
+      botStep: "idle",
+    });
     await ctx.reply("Falha ao gerar artigo. Tente novamente.");
-    userState.set(tgId, { step: "idle" });
   }
 }
 

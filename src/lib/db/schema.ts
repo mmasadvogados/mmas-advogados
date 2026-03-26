@@ -75,6 +75,12 @@ export const telegramSessions = pgTable("telegram_sessions", {
     .notNull(),
   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
   authenticated: boolean("authenticated").notNull().default(false),
+  botStep: text("bot_step").notNull().default("idle"),
+  pendingTopic: text("pending_topic"),
+  pendingArticleId: uuid("pending_article_id").references(() => articles.id, {
+    onDelete: "set null",
+  }),
+  generatingAt: timestamp("generating_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
