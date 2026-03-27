@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Article } from "@/types";
-import { Eye, FileText, Sparkles, Trash2, Share2 } from "lucide-react";
+import { Eye, FileText, Search, Sparkles, Trash2, Share2 } from "lucide-react";
 import { CopyInstagramButton } from "@/components/ui/copy-instagram-button";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +26,7 @@ export default function ArticlesPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -121,25 +122,52 @@ export default function ArticlesPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selected.size === articles.length) {
+    if (selected.size === filteredArticles.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(articles.map((a) => a.id)));
+      setSelected(new Set(filteredArticles.map((a) => a.id)));
     }
   };
 
+  const publishedCount = articles.filter((a) => a.status === "published").length;
+  const filteredArticles = articles.filter((a) => {
+    if (!search.trim()) return true;
+    const term = search.toLowerCase();
+    return (
+      a.title.toLowerCase().includes(term) ||
+      a.tags?.some((t) => t.toLowerCase().includes(term))
+    );
+  });
+
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--color-foreground)]">
             Artigos
           </h1>
-          <p className="text-sm text-[var(--color-foreground-muted)] mt-1">
-            Gerencie os artigos do blog
-          </p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-sm text-[var(--color-foreground-muted)]">
+              Gerencie os artigos do blog
+            </p>
+            {!loading && (
+              <span className="px-2.5 py-0.5 text-xs rounded-full bg-green-500/10 text-green-400">
+                {publishedCount} publicado{publishedCount !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-foreground-muted)]" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Pesquisar artigos..."
+              className="pl-9 pr-3 py-2 text-sm rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] placeholder:text-[var(--color-foreground-muted)]/50 focus:outline-none focus:border-[var(--color-accent)]/50 w-48"
+            />
+          </div>
           {selected.size > 0 && (
             <Button
               onClick={deleteSelected}
@@ -165,27 +193,29 @@ export default function ArticlesPage() {
         <div className="text-[var(--color-foreground-muted)]">
           Carregando...
         </div>
-      ) : articles.length === 0 ? (
+      ) : filteredArticles.length === 0 ? (
         <div className="text-center py-16">
           <FileText className="w-12 h-12 mx-auto text-[var(--color-foreground-muted)]/30 mb-4" />
           <p className="text-[var(--color-foreground-muted)]">
-            Nenhum artigo criado ainda
+            {search.trim() ? "Nenhum artigo encontrado" : "Nenhum artigo criado ainda"}
           </p>
-          <Link href="/admin/artigos/gerar" className="mt-4 inline-block">
-            <Button>Gerar Primeiro Artigo</Button>
-          </Link>
+          {!search.trim() && (
+            <Link href="/admin/artigos/gerar" className="mt-4 inline-block">
+              <Button>Gerar Primeiro Artigo</Button>
+            </Link>
+          )}
         </div>
       ) : (
-        <div className="rounded-xl border border-[var(--color-border)] overflow-hidden">
-          <table className="w-full">
+        <div className="rounded-xl border border-[var(--color-border)] overflow-x-auto">
+          <table className="w-full min-w-[800px]">
             <thead>
               <tr className="bg-[var(--color-surface)] border-b border-[var(--color-border)]">
                 <th className="px-4 py-3 w-10">
                   <input
                     type="checkbox"
                     checked={
-                      articles.length > 0 &&
-                      selected.size === articles.length
+                      filteredArticles.length > 0 &&
+                      selected.size === filteredArticles.length
                     }
                     onChange={toggleSelectAll}
                     className="w-4 h-4 rounded border-[var(--color-border)] accent-[var(--color-accent)] cursor-pointer"
@@ -209,7 +239,7 @@ export default function ArticlesPage() {
               </tr>
             </thead>
             <tbody>
-              {articles.map((article) => (
+              {filteredArticles.map((article) => (
                 <tr
                   key={article.id}
                   className={`border-b border-[var(--color-border)] hover:bg-white/[0.02] ${
@@ -225,7 +255,7 @@ export default function ArticlesPage() {
                     />
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-[var(--color-foreground)] truncate max-w-xs">
+                    <p className="text-sm font-medium text-[var(--color-foreground)] truncate max-w-md">
                       {article.title}
                     </p>
                   </td>
@@ -245,7 +275,7 @@ export default function ArticlesPage() {
                     {new Date(article.createdAt).toLocaleDateString("pt-BR")}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                       <Link
                         href={`/admin/artigos/preview/${article.slug}`}
                         target="_blank"
