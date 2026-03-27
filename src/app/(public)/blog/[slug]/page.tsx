@@ -9,6 +9,7 @@ import { Footer } from "@/components/layout/footer";
 import { WhatsAppFAB } from "@/components/layout/whatsapp-fab";
 import type { Metadata } from "next";
 import ReactMarkdown from "react-markdown";
+import { CopyInstagramButton } from "@/components/ui/copy-instagram-button";
 
 export const dynamic = "force-dynamic";
 
@@ -114,13 +115,13 @@ export default async function ArticlePage({ params }: Props) {
 
           {/* Share */}
           <div className="mt-12 pt-8 border-t border-[var(--color-border)]">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <Share2 className="w-5 h-5 text-[var(--color-accent)]" />
               <span className="text-sm text-[var(--color-foreground-muted)]">
                 Compartilhar:
               </span>
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(article.title + " " + process.env.NEXT_PUBLIC_APP_URL + "/blog/" + article.slug)}`}
+                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`\u2696\ufe0f ${article.title}\n\n${(article.summary || article.body.substring(0, 120)).trim().substring(0, 120)}...\n\n\ud83d\udc49 Leia na integra: ${process.env.NEXT_PUBLIC_APP_URL}/blog/${article.slug}\n\nMMAS Advogados | Assessoria Juridica`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2 text-sm rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors"
@@ -135,6 +136,9 @@ export default async function ArticlePage({ params }: Props) {
               >
                 LinkedIn
               </a>
+              <CopyInstagramButton
+                text={`\u2696\ufe0f ${article.title}\n\n${(article.summary || article.body.substring(0, 120)).trim().substring(0, 120)}...\n\nMMAS Advogados | Assessoria Juridica`}
+              />
             </div>
           </div>
         </article>

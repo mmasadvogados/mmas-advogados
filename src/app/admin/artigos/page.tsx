@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Article } from "@/types";
-import { Eye, FileText, Sparkles, Trash2 } from "lucide-react";
+import { Eye, FileText, Sparkles, Trash2, Share2 } from "lucide-react";
+import { CopyInstagramButton } from "@/components/ui/copy-instagram-button";
 import { Button } from "@/components/ui/button";
 
 const statusColors: Record<string, string> = {
@@ -87,6 +88,15 @@ export default function ArticlesPage() {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const buildShareText = (article: Article, includeLink = true) => {
+    const summary = (article.summary || article.body?.substring(0, 120) || "").trim().substring(0, 120);
+    const blogUrl = `${window.location.origin}/blog/${article.slug}`;
+    if (includeLink) {
+      return `\u2696\ufe0f ${article.title}\n\n${summary}...\n\n\ud83d\udc49 Leia na integra: ${blogUrl}\n\nMMAS Advogados | Assessoria Juridica`;
+    }
+    return `\u2696\ufe0f ${article.title}\n\n${summary}...\n\nMMAS Advogados | Assessoria Juridica`;
   };
 
   const updateStatus = async (id: string, status: string) => {
@@ -255,12 +265,28 @@ export default function ArticlesPage() {
                         </button>
                       )}
                       {article.status === "published" && (
-                        <button
-                          onClick={() => updateStatus(article.id, "draft")}
-                          className="text-xs px-3 py-1 rounded bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20"
-                        >
-                          Despublicar
-                        </button>
+                        <>
+                          <button
+                            onClick={() => updateStatus(article.id, "draft")}
+                            className="text-xs px-3 py-1 rounded bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20"
+                          >
+                            Despublicar
+                          </button>
+                          <a
+                            href={`https://api.whatsapp.com/send?text=${encodeURIComponent(buildShareText(article))}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs px-3 py-1 rounded bg-green-500/10 text-green-400 hover:bg-green-500/20"
+                            title="Compartilhar no WhatsApp"
+                          >
+                            <Share2 className="w-3 h-3 inline mr-1" />
+                            WhatsApp
+                          </a>
+                          <CopyInstagramButton
+                            text={buildShareText(article, false)}
+                            className="text-xs px-3 py-1 rounded bg-pink-500/10 text-pink-400 hover:bg-pink-500/20"
+                          />
+                        </>
                       )}
                       <button
                         onClick={() => deleteArticle(article.id)}

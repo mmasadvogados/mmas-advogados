@@ -179,15 +179,24 @@ async def _handle_approve(query, tg_id: int, session: dict) -> None:
     )
 
     blog_url = f"{settings.NEXT_PUBLIC_APP_URL}/blog/{updated['slug']}"
-    share_text = quote(f"{draft['title']} {blog_url}")
+    summary_preview = (draft.get("summary") or draft.get("body", "")[:120]).strip()
+    if len(summary_preview) > 120:
+        summary_preview = summary_preview[:117] + "..."
+
+    share_text = quote(
+        f"\u2696\ufe0f {draft['title']}\n\n"
+        f"{summary_preview}\n\n"
+        f"\U0001f449 Leia na integra: {blog_url}\n\n"
+        f"MMAS Advogados | Assessoria Juridica"
+    )
 
     share_keyboard = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Ver no Blog", url=blog_url)],
             [
                 InlineKeyboardButton(
-                    "Compartilhar WhatsApp",
-                    url=f"https://wa.me/?text={share_text}",
+                    "\U0001f4e4 Compartilhar WhatsApp",
+                    url=f"https://api.whatsapp.com/send?text={share_text}",
                 )
             ],
         ]

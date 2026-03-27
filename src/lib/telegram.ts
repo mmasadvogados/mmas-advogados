@@ -320,12 +320,14 @@ bot.on("callback_query:data", async (ctx) => {
       });
 
       const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${updated.slug}`;
+      const summaryPreview = ((draft.summary || draft.body?.substring(0, 120)) ?? "").trim().substring(0, 120);
+      const shareText = `\u2696\ufe0f ${draft.title}\n\n${summaryPreview}...\n\n\ud83d\udc49 Leia na integra: ${blogUrl}\n\nMMAS Advogados | Assessoria Juridica`;
       const shareKeyboard = new InlineKeyboard()
         .url("Ver no Blog", blogUrl)
         .row()
         .url(
-          "Compartilhar WhatsApp",
-          `https://wa.me/?text=${encodeURIComponent(draft.title + " " + blogUrl)}`
+          "\ud83d\udce4 Compartilhar WhatsApp",
+          `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`
         );
 
       await safeEditMessage(ctx, "Publicado!");
