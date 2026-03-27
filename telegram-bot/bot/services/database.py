@@ -183,13 +183,13 @@ def update_article_status(article_id: str, status: str, published_at: Optional[d
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             if published_at:
                 cur.execute(
-                    """UPDATE articles SET status = %s, published_at = %s
+                    """UPDATE articles SET status = %s, published_at = %s, updated_at = NOW()
                        WHERE id = %s RETURNING id, status, slug""",
                     (status, published_at, article_id),
                 )
             else:
                 cur.execute(
-                    """UPDATE articles SET status = %s
+                    """UPDATE articles SET status = %s, updated_at = NOW()
                        WHERE id = %s RETURNING id, status, slug""",
                     (status, article_id),
                 )

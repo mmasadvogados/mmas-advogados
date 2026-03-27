@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # App URL (Next.js frontend)
     NEXT_PUBLIC_APP_URL: str = ""
 
+    # Revalidation secret (must match REVALIDATE_SECRET on Vercel)
+    REVALIDATE_SECRET: str = ""
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
