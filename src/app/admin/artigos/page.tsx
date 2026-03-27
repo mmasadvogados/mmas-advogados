@@ -37,8 +37,13 @@ export default function ArticlesPage() {
       if (!cancelled) setLoading(false);
     }
     load();
+    // Auto-refresh every 10s to catch Telegram-published articles
+    const interval = setInterval(() => {
+      if (!cancelled) load();
+    }, 10_000);
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, []);
 
