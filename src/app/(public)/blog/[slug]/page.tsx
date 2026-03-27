@@ -4,9 +4,6 @@ import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { Calendar, Clock, ArrowLeft, Share2 } from "lucide-react";
 import Link from "next/link";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
-import { WhatsAppFAB } from "@/components/layout/whatsapp-fab";
 import type { Metadata } from "next";
 import ReactMarkdown from "react-markdown";
 import { CopyInstagramButton } from "@/components/ui/copy-instagram-button";
@@ -46,8 +43,6 @@ export default async function ArticlePage({ params }: Props) {
   const readingTime = Math.ceil((article.body?.length || 0) / 1000);
 
   return (
-    <>
-      <Header />
       <main className="min-h-screen bg-[var(--color-background)] pt-28 pb-16">
         <article className="mx-auto max-w-3xl px-6">
           {/* Back link */}
@@ -110,7 +105,7 @@ export default async function ArticlePage({ params }: Props) {
 
           {/* Body */}
           <div className="mt-8 prose prose-invert prose-gold max-w-none text-[var(--color-foreground-muted)] leading-relaxed [&_h2]:font-[family-name:var(--font-heading)] [&_h2]:text-[var(--color-foreground)] [&_h2]:text-2xl [&_h2]:mt-10 [&_h2]:mb-4 [&_h3]:text-[var(--color-foreground)] [&_h3]:text-xl [&_h3]:mt-8 [&_h3]:mb-3 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-2 [&_strong]:text-[var(--color-foreground)] [&_strong]:font-semibold [&_a]:text-[var(--color-accent)] [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--color-accent)] [&_blockquote]:pl-4 [&_blockquote]:italic [&_img]:w-full [&_img]:rounded-2xl [&_img]:shadow-[var(--shadow-glow-gold-muted)] [&_img]:mb-8">
-            <ReactMarkdown>{article.body}</ReactMarkdown>
+            <ReactMarkdown>{article.body.replace(/^!\[.*?\]\(.*?\)\s*\n*/,"")}</ReactMarkdown>
           </div>
 
           {/* Share */}
@@ -143,8 +138,5 @@ export default async function ArticlePage({ params }: Props) {
           </div>
         </article>
       </main>
-      <Footer />
-      <WhatsAppFAB />
-    </>
   );
 }

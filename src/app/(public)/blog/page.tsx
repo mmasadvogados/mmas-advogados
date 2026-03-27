@@ -3,9 +3,6 @@ import { articles } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import Link from "next/link";
 import { Calendar, Clock } from "lucide-react";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
-import { WhatsAppFAB } from "@/components/layout/whatsapp-fab";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +21,6 @@ export default async function BlogPage() {
     .limit(20);
 
   return (
-    <>
-      <Header />
       <main className="min-h-screen bg-[var(--color-background)] pt-28 pb-16">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-12">
@@ -111,8 +106,5 @@ export default async function BlogPage() {
           )}
         </div>
       </main>
-      <Footer />
-      <WhatsAppFAB />
-    </>
   );
 }

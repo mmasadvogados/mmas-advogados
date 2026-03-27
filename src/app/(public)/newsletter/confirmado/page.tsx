@@ -1,14 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
-import { WhatsAppFAB } from "@/components/layout/whatsapp-fab";
 import { CheckCircle } from "lucide-react";
 
 export default function NewsletterConfirmadoPage() {
   return (
-    <>
-      <Header />
       <main className="min-h-screen bg-[var(--color-background)] pt-28 pb-16 flex items-center justify-center">
         <div className="mx-auto max-w-md px-6 text-center">
           <Image
@@ -42,8 +37,5 @@ export default function NewsletterConfirmadoPage() {
           </div>
         </div>
       </main>
-      <Footer />
-      <WhatsAppFAB />
-    </>
   );
 }
