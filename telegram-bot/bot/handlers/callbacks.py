@@ -29,13 +29,11 @@ logger = logging.getLogger(__name__)
 
 
 async def _safe_edit_message(query, text: str, **kwargs) -> None:
-    """Safe edit that ignores 'message is not modified' errors."""
+    """Safe edit — never crashes the flow, editMessage is cosmetic only."""
     try:
         await query.edit_message_text(text, **kwargs)
     except Exception as err:
-        if "message is not modified" in str(err).lower():
-            return  # harmless duplicate
-        raise
+        logger.debug("editMessageText failed (non-blocking): %s", err)
 
 
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
