@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Article } from "@/types";
-import { Eye, FileText, Search, Sparkles, Trash2, Share2 } from "lucide-react";
+import { Eye, FileText, Pencil, Search, Sparkles, Trash2, Share2 } from "lucide-react";
 import { CopyInstagramButton } from "@/components/ui/copy-instagram-button";
 import { Button } from "@/components/ui/button";
 
@@ -283,6 +283,13 @@ export default function ArticlesPage() {
                         title="Ver artigo"
                       >
                         <Eye className="w-4 h-4" />
+                      </Link>
+                      <Link
+                        href={`/admin/artigos/${article.id}/editar`}
+                        className="p-1.5 rounded text-[var(--color-foreground-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10"
+                        title="Editar artigo"
+                      >
+                        <Pencil className="w-4 h-4" />
                       </Link>
                       {article.status === "draft" && (
                         <button
