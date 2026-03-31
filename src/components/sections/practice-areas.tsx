@@ -73,7 +73,7 @@ export function PracticeAreas() {
               initial={{ opacity: 0, y: 30 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.3 + i * 0.06 }}
-              className={`group relative glass rounded-2xl p-7 gold-border-animated hover:shadow-[var(--shadow-glow-gold)] transition-all duration-500 ${
+              className={`group relative glass rounded-2xl p-5 sm:p-7 gold-border-animated hover:shadow-[var(--shadow-glow-gold)] transition-all duration-500 ${
                 area.featured ? "sm:col-span-1 lg:row-span-1" : ""
               }`}
             >

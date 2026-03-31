@@ -38,7 +38,7 @@ export function Footer() {
   return (
     <footer className="relative">
       {/* Pre-footer CTA Bar */}
-      <div className="relative py-16 overflow-hidden">
+      <div className="relative py-10 sm:py-16 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-accent)]/10 via-[var(--color-accent)]/5 to-[var(--color-accent)]/10" />
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--color-accent)]/40 to-transparent" />
         <div className="relative z-10 mx-auto max-w-7xl px-6 text-center">
@@ -59,7 +59,7 @@ export function Footer() {
       {/* Main Footer */}
       <div className="bg-[var(--color-primary)] border-t border-[var(--color-border)]">
         <div className="mx-auto max-w-7xl px-6 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12">
             {/* Brand */}
             <div className="space-y-5">
               <div className="flex items-center gap-4">

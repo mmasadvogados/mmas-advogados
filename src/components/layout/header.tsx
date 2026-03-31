@@ -126,7 +126,7 @@ export function Header() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="absolute right-0 top-0 bottom-0 w-80 glass flex flex-col"
+              className="absolute right-0 top-0 bottom-0 w-72 min-[400px]:w-80 glass flex flex-col"
             >
               <div className="flex items-center justify-between p-6 border-b border-[var(--color-border-gold)]">
                 <Image

@@ -48,7 +48,7 @@ export function Stats() {
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--color-accent)]/30 to-transparent" />
 
       <div className="relative z-10 mx-auto max-w-7xl px-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-0">
+        <div className="grid grid-cols-1 min-[400px]:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-0">
           {stats.map((stat, i) => (
             <motion.div
               key={stat.label}

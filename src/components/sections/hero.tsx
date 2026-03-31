@@ -49,10 +49,10 @@ export function Hero() {
 
       {/* Content */}
       <motion.div
-        className="relative z-10 mx-auto max-w-7xl px-6 w-full pt-32 pb-24"
+        className="relative z-10 mx-auto max-w-7xl px-6 w-full pt-24 pb-16 sm:pt-32 sm:pb-24"
         style={{ opacity: contentOpacity }}
       >
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 sm:gap-8 lg:gap-12 items-center">
           {/* Left Content (3/5) */}
           <div className="lg:col-span-3 space-y-8">
             {/* Section Label */}

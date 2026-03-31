@@ -72,7 +72,7 @@ export function Team() {
         </div>
 
         {/* Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-8">
           {attorneys.map((attorney, i) => (
             <motion.div
               key={attorney.name}
@@ -82,7 +82,7 @@ export function Team() {
               className="group glass rounded-2xl overflow-hidden gold-border-animated"
             >
               {/* Photo placeholder — geometric gold pattern */}
-              <div className="relative h-72 bg-gradient-to-br from-[var(--color-surface)] to-[var(--color-primary)] flex items-center justify-center overflow-hidden">
+              <div className="relative h-52 sm:h-64 md:h-72 bg-gradient-to-br from-[var(--color-surface)] to-[var(--color-primary)] flex items-center justify-center overflow-hidden">
                 {/* Decorative geometric lines */}
                 <svg className="absolute inset-0 w-full h-full opacity-10" viewBox="0 0 400 300">
                   <line x1="0" y1="150" x2="400" y2="150" stroke="#C9A227" strokeWidth="0.5" />
