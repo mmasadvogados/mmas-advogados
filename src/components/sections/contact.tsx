@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import Image from "next/image";
 import { MapPin, Phone, Mail, Clock, MessageCircle } from "lucide-react";
+import { MapActions } from "@/components/ui/map-actions";
 
 const practiceAreas = [
   "Internet", "Civil", "Empresarial", "Tributário", "Agrário e Ambiental",
@@ -76,13 +77,13 @@ export function Contact() {
           </motion.h2>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
           {/* Form in Glass Card */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: 0.4 }}
-            className="glass rounded-2xl p-8"
+            className="glass rounded-2xl p-5 sm:p-8"
           >
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -189,7 +190,7 @@ export function Contact() {
           initial={{ opacity: 0, y: 30 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ delay: 0.8 }}
-          className="mt-16 w-full h-[400px] rounded-2xl overflow-hidden glass relative group"
+          className="mt-8 sm:mt-12 lg:mt-16 w-full h-[280px] sm:h-[350px] lg:h-[400px] rounded-2xl overflow-hidden glass relative group"
         >
           <iframe
             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1136.2570086815777!2d-48.9392823!3d-20.0267713!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94bb4b06b6e4e5cf%3A0xe9628ed46fcfbd10!2sR.%20S%C3%ADlvio%20Romero%2C%20500%20-%20Centro%2C%20Frutal%20-%20MG%2C%2038200-000!5e0!3m2!1sen!2sbr!4v1711234567890!5m2!1sen!2sbr"
@@ -201,6 +202,10 @@ export function Contact() {
             referrerPolicy="no-referrer-when-downgrade"
             className="group-hover:filter-none transition-all duration-700"
           ></iframe>
+          <MapActions
+            address="Rua Silvio Romero, 500 - Centro, Frutal-MG, CEP 38200-014"
+            mapsUrl="https://www.google.com/maps/search/?api=1&query=Rua+Silvio+Romero,+500+-+Centro,+Frutal+-+MG,+38200-014"
+          />
         </motion.div>
       </div>
     </section>

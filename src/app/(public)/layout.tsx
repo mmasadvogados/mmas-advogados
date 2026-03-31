@@ -1,6 +1,7 @@
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { WhatsAppFAB } from "@/components/layout/whatsapp-fab";
+import { ToastProvider } from "@/components/ui/toast";
 
 export default function PublicLayout({
   children,
@@ -10,7 +11,9 @@ export default function PublicLayout({
   return (
     <>
       <Header />
-      {children}
+      <ToastProvider>
+        {children}
+      </ToastProvider>
       <Footer />
       <WhatsAppFAB />
     </>
