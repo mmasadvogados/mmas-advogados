@@ -74,7 +74,7 @@ export async function PUT(request: Request, { params }: Props) {
   revalidatePath(`/blog/${existing.slug}`);
 
   if (body.status === "published" && body.status !== existing.status) {
-    onArticlePublished(updated);
+    void onArticlePublished(updated).catch(console.error);
   }
 
   return NextResponse.json(updated);

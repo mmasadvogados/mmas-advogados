@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   });
 
   if (article.status === "published") {
-    onArticlePublished(article);
+    void onArticlePublished(article).catch(console.error);
   }
 
   return NextResponse.json(article, { status: 201 });

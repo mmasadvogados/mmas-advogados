@@ -2,6 +2,10 @@ import { Resend } from "resend";
 
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
+export const SENDER = process.env.RESEND_FROM_EMAIL
+  ? `MMAS Advogados <${process.env.RESEND_FROM_EMAIL}>`
+  : "MMAS Advogados <onboarding@resend.dev>";
+
 const logoUrl = `${process.env.NEXT_PUBLIC_APP_URL}/images/logo-scales.svg`;
 const emailLogo = `<img src="${logoUrl}" alt="MMAS Advogados" width="40" height="44" style="display: block;" />`;
 
@@ -22,15 +26,20 @@ export async function sendNewsletter(
 
   for (const batch of batches) {
     try {
-      await resend.batch.send(
+      const response = await resend.batch.send(
         batch.map((email) => ({
-          from: "MMAS Advogados <onboarding@resend.dev>",
+          from: SENDER,
           to: email,
           subject,
           html: getNewsletterHtml(articleTitle, articleSummary, articleUrl, email),
         }))
       );
-      totalSent += batch.length;
+      if (response.error) {
+        console.error("Newsletter batch error:", response.error);
+        totalError += batch.length;
+      } else {
+        totalSent += batch.length;
+      }
     } catch (err) {
       console.error("Newsletter batch failed:", err);
       totalError += batch.length;
@@ -40,11 +49,13 @@ export async function sendNewsletter(
   return { totalSent, totalError };
 }
 
+// TODO: double opt-in (LGPD) — Activate this when implementing email confirmation flow.
+// Currently subscribers are auto-confirmed in POST /api/subscribers.
 export async function sendConfirmationEmail(to: string, token: string) {
   const confirmUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/newsletter/confirm?token=${token}`;
 
   await resend.emails.send({
-    from: "MMAS Advogados <onboarding@resend.dev>",
+    from: SENDER,
     to,
     subject: "Confirme sua inscrição na newsletter",
     html: `

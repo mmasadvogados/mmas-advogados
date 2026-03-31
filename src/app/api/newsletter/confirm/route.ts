@@ -1,3 +1,5 @@
+// TODO: double opt-in (LGPD) — Currently subscribers are auto-confirmed.
+// This endpoint will be used when sendConfirmationEmail() is activated.
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { subscribers } from "@/lib/db/schema";

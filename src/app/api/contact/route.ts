@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { contactSchema } from "@/lib/validators";
-import { resend } from "@/lib/resend";
+import { resend, SENDER } from "@/lib/resend";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
   try {
     await resend.emails.send({
-      from: "MMAS Site <onboarding@resend.dev>",
+      from: SENDER,
       to: "escritorio@mmasadvogados.adv.br",
       replyTo: email,
       subject: `[Site] ${subject} - ${name}`,

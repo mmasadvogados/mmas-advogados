@@ -23,7 +23,7 @@ export function Footer() {
       });
       const data = await res.json();
       if (res.ok) {
-        setMessage({ text: data.message || "Verifique seu email para confirmar!", type: "success" });
+        setMessage({ text: data.message || "Inscrição realizada com sucesso!", type: "success" });
         setEmail("");
       } else {
         setMessage({ text: data.error || "Erro ao inscrever.", type: "error" });
